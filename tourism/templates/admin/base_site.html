@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+{% load static jazzmin admin_urls %}
+
+{% block title %}
+{% if subtitle %}{{ subtitle }} | {% endif %}
+{{ title }} | Mathura Darshan Admin
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block branding %}
+<div class="mathura-admin-brand"></div>
+{% endblock %}
+
+{% block sidebar %}
+<a href="{% url 'admin:index' %}" class="mathura-navbar-brand" id="mathura-navbar-brand">
+    <span class="mathura-navbar-brand__mark">
+        <img src="{% static 'img/admin-mark.png' %}" alt="Mathura Darshan" class="mathura-navbar-brand__icon">
+    </span>
+    <span class="mathura-navbar-brand__copy">
+        <strong>Mathura Darshan</strong>
+        <small>Admin Console</small>
+    </span>
+</a>
+<aside class="main-sidebar elevation-4 sidebar-dark-primary" id="jazzy-sidebar">
+    <div class="sidebar">
+        <div class="mathura-side-search">
+            <form action="/admin/tourism/touristplace/" method="get">
+                <input type="search" name="q" placeholder="Search places, services, bookings...">
+            </form>
+        </div>
+
+        <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" role="menu">
+                <li class="nav-item nav-sidebar-heading"><span class="nav-sidebar-heading__label">Overview</span></li>
+                <li class="nav-item"><a href="/admin/" class="nav-link{% if request.path == '/admin/' or request.path == '/admin/dashboard/' %} active{% endif %}"><i class="nav-icon fas fa-house"></i><p>Dashboard</p></a></li>
+                <li class="nav-item"><a href="/admin/reports/" class="nav-link{% if '/admin/reports/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-chart-column"></i><p>Reports</p></a></li>
+
+                <li class="nav-item nav-sidebar-heading"><span class="nav-sidebar-heading__label">Content</span></li>
+                <li class="nav-item"><a href="/admin/tourism/touristplace/" class="nav-link{% if '/admin/tourism/touristplace/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-map-location-dot"></i><p>Places</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/templeguide/" class="nav-link{% if '/admin/tourism/templeguide/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-gopuram"></i><p>Temple Guides</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/review/" class="nav-link{% if '/admin/tourism/review/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-star"></i><p>Reviews</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/tripplan/" class="nav-link{% if '/admin/tourism/tripplan/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-route"></i><p>Trip Plans</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/chathistory/" class="nav-link{% if '/admin/tourism/chathistory/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-comments"></i><p>Chat Logs</p></a></li>
+
+                <li class="nav-item nav-sidebar-heading"><span class="nav-sidebar-heading__label">Operations</span></li>
+                <li class="nav-item"><a href="/admin/tourism/booking/" class="nav-link{% if '/admin/tourism/booking/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-calendar-check"></i><p>Bookings</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/localservice/" class="nav-link{% if '/admin/tourism/localservice/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-briefcase"></i><p>Services</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/notification/" class="nav-link{% if '/admin/tourism/notification/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-bell"></i><p>Notifications</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/favouriteplace/" class="nav-link{% if '/admin/tourism/favouriteplace/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-heart"></i><p>Favorites</p></a></li>
+
+                <li class="nav-item nav-sidebar-heading"><span class="nav-sidebar-heading__label">Access</span></li>
+                <li class="nav-item"><a href="/admin/auth/user/" class="nav-link{% if '/admin/auth/user/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-user"></i><p>Users</p></a></li>
+                <li class="nav-item"><a href="/admin/auth/group/" class="nav-link{% if '/admin/auth/group/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-users"></i><p>Groups</p></a></li>
+                <li class="nav-item"><a href="/admin/tourism/userprofile/" class="nav-link{% if '/admin/tourism/userprofile/' in request.path %} active{% endif %}"><i class="nav-icon fas fa-id-card"></i><p>User Profiles</p></a></li>
+            </ul>
+        </nav>
+
+        <div class="mathura-side-footer">
+            <div class="mathura-side-footer__avatar">{{ request.user.username|first|upper }}</div>
+            <div class="mathura-side-footer__meta">
+                <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                <span>{{ request.user.email|default:"Admin user" }}</span>
+            </div>
+            <div class="mathura-side-footer__links">
+                {% if perms|can_view_self %}
+                <a href="{% jazzy_admin_url request.user request.current_app|default:'admin' %}">Profile</a>
+                {% endif %}
+                <form id="sidebar-logout-form" method="post" action="{% url 'admin:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit">Logout</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</aside>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block page_content %}
+    {% if not is_popup %}
+    <section class="mathura-app-header">
+        <div class="mathura-app-header__title">
+            <p class="mathura-app-header__eyebrow">Smart Tourism Guide - Mathura</p>
+            <div>
+                <h1>{{ app_header_title|default:title|default:"Admin Console" }}</h1>
+                <p>{{ app_header_subtitle|default:"Manage places, services, reports, and operations from one workspace." }}</p>
+            </div>
+        </div>
+        <div class="mathura-app-header__tools">
+            <form action="/admin/tourism/touristplace/" method="get" class="mathura-app-search">
+                <i class="fas fa-search"></i>
+                <input type="search" name="q" placeholder="Search places, bookings, services...">
+            </form>
+            <div class="mathura-app-header__chips">
+                {% for link in app_header_quick_links %}
+                <a href="{{ link.url }}" {% if link.url == "/" %}target="_blank"{% endif %} class="mathura-header-chip">
+                    <i class="{{ link.icon }}"></i>
+                    <span>{{ link.label }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            <div class="mathura-app-header__user">
+                <div class="mathura-app-header__avatar">{{ app_header_user_initial|default:request.user.username|first|upper }}</div>
+                <div>
+                    <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                    <span>{{ request.user.email|default:"Operations Admin" }}</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+    <div class="content">
+        <div class="container-fluid">
+            <section id="content" class="content">
+                {% block messages %}
+                    {% for message in messages %}
+                        {% if message.tags == 'success' %}
+                            <div class="alert alert-success alert-dismissible">
+                                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">x</button>
+                                <i class="icon fa fa-check"></i>{{ message|capfirst }}
+                            </div>
+                        {% elif message.tags == 'error' %}
+                            <div class="alert alert-danger alert-dismissible">
+                                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">x</button>
+                                <i class="icon fa fa-ban"></i>{{ message|capfirst }}
+                            </div>
+                        {% elif message.tags == 'warning' %}
+                            <div class="alert alert-warning alert-dismissible">
+                                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">x</button>
+                                <i class="icon fa fa-exclamation-triangle"></i>{{ message|capfirst }}
+                            </div>
+                        {% elif message.tags == 'info' %}
+                            <div class="alert alert-info alert-dismissible">
+                                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">x</button>
+                                <i class="icon fa fa-info"></i>{{ message|capfirst }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endblock messages %}
+                <div class="row">
+                    {% block content %}{% endblock %}
+                </div>
+            </section>
+        </div>
+    </div>
+{% endblock %}

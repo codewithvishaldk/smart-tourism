@@ -1,0 +1,586 @@
+{% extends 'base.html' %}
+
+{% block title %}Plan Your Trip - Mathura Darshan{% endblock %}
+
+{% block extra_css %}
+<style>
+    .planner-shell {
+        display: grid;
+        gap: 24px;
+    }
+
+    .planner-hero {
+        padding: clamp(28px, 5vw, 58px);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background:
+            linear-gradient(130deg, rgba(255, 249, 238, 0.92), rgba(255, 239, 208, 0.62)),
+            radial-gradient(circle at top right, rgba(211, 154, 40, 0.18), transparent 42%);
+        box-shadow: var(--shadow);
+    }
+
+    :root[data-theme="dark"] .planner-hero {
+        background:
+            linear-gradient(130deg, rgba(29, 23, 37, 0.94), rgba(44, 34, 53, 0.88)),
+            radial-gradient(circle at top right, rgba(240, 170, 62, 0.15), transparent 42%);
+    }
+
+    .planner-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .planner-form-card,
+    .planner-side-card,
+    .planner-result-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+    }
+
+    .planner-form-card .card-body,
+    .planner-side-card .card-body,
+    .planner-result-card .card-body {
+        padding: 24px;
+    }
+
+    .focus-chip-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .focus-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface-soft);
+        color: var(--text);
+        cursor: pointer;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .focus-chip:hover {
+        transform: translateY(-1px);
+        border-color: rgba(211, 154, 40, 0.55);
+    }
+
+    .planner-result-grid {
+        display: grid;
+        gap: 18px;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .mini-stat {
+        padding: 18px;
+        border-radius: 8px;
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+    }
+
+    .mini-stat small {
+        display: block;
+        color: var(--muted);
+        margin-bottom: 6px;
+    }
+
+    .budget-grid,
+    .tips-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .budget-item,
+    .tip-card,
+    .day-card {
+        padding: 18px;
+        border-radius: 8px;
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+    }
+
+    .budget-amount {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--primary-color);
+    }
+
+    .day-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .day-budget {
+        font-weight: 700;
+        color: var(--success-color);
+    }
+
+    .planner-list {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .planner-list li + li {
+        margin-top: 6px;
+    }
+
+    .planner-raw {
+        white-space: pre-wrap;
+        margin: 0;
+        color: var(--text);
+    }
+
+    .planner-empty {
+        padding: 28px;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.24);
+    }
+
+    .planner-loading {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .planner-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: plannerSpin 0.7s linear infinite;
+    }
+
+    @keyframes plannerSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (max-width: 991px) {
+        .planner-grid,
+        .summary-grid,
+        .budget-grid,
+        .tips-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container planner-shell">
+    <section class="planner-hero">
+        <span class="section-kicker"><i class="bi bi-calendar2-heart"></i> AI trip planner</span>
+        <h1>Plan your trip with AI budget guidance</h1>
+        <p class="mb-0">Apni Mathura ya Mathura + Vrindavan trip ke liye duration, budget aur preferences dalo. AI aapke liye itinerary, daily plan aur estimated budget bana dega.</p>
+    </section>
+
+    <section class="planner-grid">
+        <div class="planner-form-card card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <span class="section-kicker"><i class="bi bi-map"></i> Plan Your Trip</span>
+                        <h3 class="mb-1">AI Budget Planner</h3>
+                        <p class="text-muted mb-0">Travel style ke hisaab se itinerary aur kharcha estimate.</p>
+                    </div>
+                </div>
+
+                <form id="tripPlannerForm" class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Duration</label>
+                        <select class="form-select" name="duration_days" required>
+                            <option value="1">1 day</option>
+                            <option value="2" selected>2 days</option>
+                            <option value="3">3 days</option>
+                            <option value="4">4 days</option>
+                            <option value="5">5 days</option>
+                            <option value="6">6 days</option>
+                            <option value="7">7 days</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Travelers</label>
+                        <input type="number" min="1" max="20" value="2" class="form-control" name="travelers" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Budget Style</label>
+                        <select class="form-select" name="budget_style">
+                            <option value="budget">Budget</option>
+                            <option value="balanced" selected>Balanced</option>
+                            <option value="premium">Premium</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Language Tone</label>
+                        <select class="form-select" name="language">
+                            <option value="hinglish" selected>Hinglish</option>
+                            <option value="hindi">Hindi</option>
+                            <option value="english">English</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Stay Preference</label>
+                        <select class="form-select" name="stay_preference">
+                            <option value="dharamshala">Dharamshala</option>
+                            <option value="budget hotel" selected>Budget hotel</option>
+                            <option value="family hotel">Family hotel</option>
+                            <option value="premium hotel">Premium hotel</option>
+                            <option value="day trip only">Day trip only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Food Preference</label>
+                        <select class="form-select" name="food_preference">
+                            <option value="sattvik">Sattvik</option>
+                            <option value="vegetarian" selected>Vegetarian</option>
+                            <option value="family-friendly">Family friendly</option>
+                            <option value="mixed">Mixed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Local Transport</label>
+                        <select class="form-select" name="transport_preference">
+                            <option value="walking and e-rickshaw" selected>Walking + e-rickshaw</option>
+                            <option value="auto/e-rickshaw">Auto / e-rickshaw</option>
+                            <option value="cab">Cab</option>
+                            <option value="self-drive">Self drive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" name="include_vrindavan" id="includeVrindavan" checked>
+                            <label class="form-check-label" for="includeVrindavan">Include Vrindavan</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Trip Focus</label>
+                        <input type="text" class="form-control" name="focus_areas" id="focusAreas" placeholder="Temple darshan, local food, family trip, Yamuna ghat...">
+                        <div class="focus-chip-wrap">
+                            {% for option in focus_options %}
+                            <button type="button" class="focus-chip" onclick="addFocusChip('{{ option }}')">
+                                <i class="bi bi-plus-circle"></i> {{ option }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Special Notes</label>
+                        <textarea class="form-control" rows="4" name="notes" placeholder="Example: elders saath hain, Janmabhoomi priority hai, shopping kam rakhni hai..."></textarea>
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary" id="generatePlanBtn">
+                            <i class="bi bi-stars"></i> Generate AI Plan
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="fillSampleTrip()">
+                            <i class="bi bi-magic"></i> Try Sample
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="planner-side-card card">
+            <div class="card-body">
+                <span class="section-kicker"><i class="bi bi-lightbulb"></i> What you get</span>
+                <h4>Smart plan in one place</h4>
+                <div class="tips-grid">
+                    <div class="tip-card">
+                        <strong>Daily itinerary</strong>
+                        <p class="text-muted mb-0">Day-wise darshan route and place order.</p>
+                    </div>
+                    <div class="tip-card">
+                        <strong>Budget estimate</strong>
+                        <p class="text-muted mb-0">Stay, food, local transport, and misc breakup.</p>
+                    </div>
+                    <div class="tip-card">
+                        <strong>Money-saving tips</strong>
+                        <p class="text-muted mb-0">Simple practical ideas for budget control.</p>
+                    </div>
+                    <div class="tip-card">
+                        <strong>Checklist</strong>
+                        <p class="text-muted mb-0">Things to confirm before starting the trip.</p>
+                    </div>
+                </div>
+                <hr>
+                <p class="text-muted mb-0">Note: Budget aur timings estimate hain. Final booking aur temple timings local level par verify karna best rahega.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="planner-result-card card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <span class="section-kicker"><i class="bi bi-wallet2"></i> AI Result</span>
+                    <h3 class="mb-1">Trip plan and budget</h3>
+                    <p class="text-muted mb-0">Aapka generated itinerary yahan show hoga.</p>
+                </div>
+            </div>
+
+            <div id="plannerEmptyState" class="planner-empty">
+                Duration, budget aur preferences fill karke AI plan generate kijiye.
+            </div>
+            <div id="plannerError" class="alert alert-danger d-none" role="alert"></div>
+            <div id="plannerResult" class="planner-result-grid d-none"></div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const plannerForm = document.getElementById('tripPlannerForm');
+    const plannerResult = document.getElementById('plannerResult');
+    const plannerError = document.getElementById('plannerError');
+    const plannerEmptyState = document.getElementById('plannerEmptyState');
+    const generatePlanBtn = document.getElementById('generatePlanBtn');
+
+    plannerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        plannerError.classList.add('d-none');
+        plannerResult.classList.add('d-none');
+        plannerEmptyState.classList.add('d-none');
+        setPlannerLoading(true);
+
+        const formData = new FormData(plannerForm);
+        const payload = {
+            duration_days: Number(formData.get('duration_days')),
+            travelers: Number(formData.get('travelers')),
+            budget_style: formData.get('budget_style'),
+            stay_preference: formData.get('stay_preference'),
+            food_preference: formData.get('food_preference'),
+            transport_preference: formData.get('transport_preference'),
+            focus_areas: formData.get('focus_areas'),
+            notes: formData.get('notes'),
+            language: formData.get('language'),
+            include_vrindavan: document.getElementById('includeVrindavan').checked,
+        };
+
+        try {
+            const response = await fetch('/plan-trip/api/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Unable to generate plan right now.');
+            }
+
+            renderPlannerResult(data);
+        } catch (error) {
+            plannerError.textContent = error.message || 'Unable to generate plan right now.';
+            plannerError.classList.remove('d-none');
+            plannerEmptyState.classList.remove('d-none');
+        } finally {
+            setPlannerLoading(false);
+        }
+    });
+
+    function setPlannerLoading(isLoading) {
+        generatePlanBtn.disabled = isLoading;
+        generatePlanBtn.innerHTML = isLoading
+            ? '<span class="planner-loading"><span class="planner-spinner"></span> Generating...</span>'
+            : '<i class="bi bi-stars"></i> Generate AI Plan';
+    }
+
+    function addFocusChip(value) {
+        const input = document.getElementById('focusAreas');
+        const current = input.value
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+
+        if (!current.includes(value)) {
+            current.push(value);
+            input.value = current.join(', ');
+        }
+    }
+
+    function fillSampleTrip() {
+        plannerForm.elements['duration_days'].value = '3';
+        plannerForm.elements['travelers'].value = '3';
+        plannerForm.elements['budget_style'].value = 'balanced';
+        plannerForm.elements['stay_preference'].value = 'family hotel';
+        plannerForm.elements['food_preference'].value = 'vegetarian';
+        plannerForm.elements['transport_preference'].value = 'walking and e-rickshaw';
+        plannerForm.elements['language'].value = 'hinglish';
+        plannerForm.elements['focus_areas'].value = 'Temple darshan, Vrindavan visit, Family trip, Local food';
+        plannerForm.elements['notes'].value = 'Elders saath hain, Janmabhoomi aur evening aarti priority hai.';
+        document.getElementById('includeVrindavan').checked = true;
+    }
+
+    function renderPlannerResult(data) {
+        plannerResult.classList.remove('d-none');
+
+        if (data.structured && data.plan) {
+            plannerResult.innerHTML = renderStructuredPlan(data.plan);
+            return;
+        }
+
+        plannerResult.innerHTML = `
+            <div class="planner-side-card">
+                <div class="card-body">
+                    <h4>AI Planner Response</h4>
+                    <pre class="planner-raw">${escapeHtml(data.raw_response || 'No response available.')}</pre>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderStructuredPlan(plan) {
+        const summary = escapeHtml(plan.summary || '');
+        const title = escapeHtml(plan.trip_title || 'Your Mathura trip plan');
+        const bestTime = escapeHtml(plan.best_time_note || '');
+        const totalMin = formatCurrency(plan.total_estimated?.min || 0);
+        const totalMax = formatCurrency(plan.total_estimated?.max || 0);
+        const perPerson = formatCurrency(plan.estimated_per_person || 0);
+        const totalNote = escapeHtml(plan.total_estimated?.note || '');
+
+        const breakdownHtml = Object.entries(plan.budget_breakdown || {})
+            .map(([label, item]) => `
+                <div class="budget-item">
+                    <small>${escapeHtml(label.replaceAll('_', ' '))}</small>
+                    <div class="budget-amount">${formatCurrency(item.amount || 0)}</div>
+                    <p class="text-muted mb-0">${escapeHtml(item.note || '')}</p>
+                </div>
+            `)
+            .join('');
+
+        const dailyPlanHtml = (plan.daily_plan || [])
+            .map((item) => `
+                <div class="day-card">
+                    <div class="day-title">
+                        <div>
+                            <strong>Day ${escapeHtml(String(item.day || ''))}</strong>
+                            <div class="text-muted">${escapeHtml(item.theme || '')}</div>
+                        </div>
+                        <div class="day-budget">${formatCurrency(item.estimated_day_budget || 0)}</div>
+                    </div>
+                    <p><strong>Places:</strong> ${escapeHtml((item.places || []).join(', '))}</p>
+                    <p><strong>Food:</strong> ${escapeHtml(item.food || '')}</p>
+                    <p><strong>Transport:</strong> ${escapeHtml(item.transport || '')}</p>
+                    <p class="mb-0"><strong>Notes:</strong> ${escapeHtml(item.notes || '')}</p>
+                </div>
+            `)
+            .join('');
+
+        const tipsHtml = renderList(plan.money_saving_tips || []);
+        const checklistHtml = renderList(plan.booking_checklist || []);
+
+        return `
+            <div class="planner-side-card">
+                <div class="card-body">
+                    <span class="section-kicker"><i class="bi bi-stars"></i> ${escapeHtml(plan.budget_currency || 'INR')} Planner</span>
+                    <h3>${title}</h3>
+                    <p>${summary}</p>
+                    <p class="text-muted mb-0">${bestTime}</p>
+                </div>
+            </div>
+
+            <div class="summary-grid">
+                <div class="mini-stat">
+                    <small>Total Estimated</small>
+                    <strong>${totalMin} to ${totalMax}</strong>
+                </div>
+                <div class="mini-stat">
+                    <small>Per Person</small>
+                    <strong>${perPerson}</strong>
+                </div>
+                <div class="mini-stat">
+                    <small>Budget Note</small>
+                    <strong>${totalNote || 'Local rates may vary slightly.'}</strong>
+                </div>
+            </div>
+
+            <div class="budget-grid">${breakdownHtml}</div>
+
+            <div class="planner-side-card">
+                <div class="card-body">
+                    <h4>Day-wise Itinerary</h4>
+                    <div class="planner-result-grid">${dailyPlanHtml}</div>
+                </div>
+            </div>
+
+            <div class="tips-grid">
+                <div class="planner-side-card">
+                    <div class="card-body">
+                        <h4>Money Saving Tips</h4>
+                        ${tipsHtml}
+                    </div>
+                </div>
+                <div class="planner-side-card">
+                    <div class="card-body">
+                        <h4>Before You Go</h4>
+                        ${checklistHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderList(items) {
+        if (!items.length) {
+            return '<p class="text-muted mb-0">No extra details available.</p>';
+        }
+
+        return `<ul class="planner-list">${items
+            .map(item => `<li>${escapeHtml(item)}</li>`)
+            .join('')}</ul>`;
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0,
+        }).format(Number(amount || 0));
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

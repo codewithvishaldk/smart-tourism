@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}Services - Mathura Darshan{% endblock %}
+
+{% block content %}
+<div class="container">
+    <span class="section-kicker"><i class="bi bi-person-check"></i> Local help</span>
+    <h1 class="mb-4">Trusted services for your visit</h1>
+
+    <!-- Tabs for Service Types -->
+    <ul class="nav nav-tabs mb-4" id="servicesTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
+                All Services
+            </button>
+        </li>
+        {% for stype in service_types %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="{{ stype }}-tab" data-bs-toggle="tab" data-bs-target="#{{ stype }}" type="button" role="tab">
+                {{ stype|upper }}
+            </button>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="servicesContent">
+        <!-- All Services Tab -->
+        <div class="tab-pane fade show active" id="all" role="tabpanel">
+            <div class="row">
+                {% for service in services %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ service.name }}</h5>
+                            <p class="card-text text-muted text-capitalize">{{ service.type }}</p>
+                            <p class="card-text">{{ service.description }}</p>
+                            <p><strong>Contact:</strong> {{ service.contact }}</p>
+                            <p><strong>Rating:</strong> <i class="bi bi-star-fill text-warning"></i> {{ service.rating|floatformat:1 }}/5</p>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bookingModal" 
+                                    onclick="selectService({{ service.service_id }}, '{{ service.name }}')">
+                                Book Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">No services available</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Type-specific Tabs -->
+        {% for stype in service_types %}
+        <div class="tab-pane fade" id="{{ stype }}" role="tabpanel">
+            <div class="row">
+                {% for service in services %}
+                    {% if service.type == stype %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ service.name }}</h5>
+                                <p class="card-text">{{ service.description }}</p>
+                                <p><strong>Contact:</strong> {{ service.contact }}</p>
+                                <p><strong>Rating:</strong> <i class="bi bi-star-fill text-warning"></i> {{ service.rating|floatformat:1 }}/5</p>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bookingModal" 
+                                        onclick="selectService({{ service.service_id }}, '{{ service.name }}')">
+                                    Book Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Book Service</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bookingForm">
+                    <input type="hidden" id="serviceId" name="service">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Service</label>
+                        <input type="text" class="form-control" id="serviceName" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scheduledDate" class="form-label">Date & Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduledDate" name="scheduled_date">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="guests" class="form-label">Number of Guests</label>
+                        <input type="number" class="form-control" id="guests" name="number_of_guests" value="1" min="1">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitBooking()">Book Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function selectService(serviceId, serviceName) {
+    document.getElementById('serviceId').value = serviceId;
+    document.getElementById('serviceName').value = serviceName;
+}
+
+function submitBooking() {
+    const form = document.getElementById('bookingForm');
+    const formData = new FormData(form);
+    const data = {
+        service: parseInt(formData.get('service')),
+        scheduled_date: formData.get('scheduled_date'),
+        number_of_guests: parseInt(formData.get('number_of_guests')),
+        notes: formData.get('notes')
+    };
+
+    fetch('/api/bookings/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(async r => {
+        if (r.status === 401) {
+            window.location.href = `{% url 'login' %}?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+            return null;
+        }
+        return r.json();
+    })
+    .then(data => {
+        if (!data) {
+            return;
+        }
+        if (data.id) {
+            alert('Booking successful!');
+            document.getElementById('bookingForm').reset();
+            bootstrap.Modal.getInstance(document.getElementById('bookingModal')).hide();
+        } else {
+            alert('Error: ' + JSON.stringify(data));
+        }
+    })
+    .catch(err => alert('Error: ' + err));
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

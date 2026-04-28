@@ -1,0 +1,309 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Reports | Mathura Darshan Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin_dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="ops-shell">
+    <section class="ops-hero">
+        <div>
+            <p class="ops-eyebrow">Reporting Suite</p>
+            <h1>Admin Reports</h1>
+            <p class="ops-subtitle">Quick operational snapshots for bookings, inventory mix, user activity, and content quality.</p>
+        </div>
+        <div class="ops-hero-meta">
+            <div class="ops-meta-card">
+                <span class="ops-meta-label">Reviews Avg</span>
+                <strong>{{ avg_review_rating }}</strong>
+            </div>
+            <div class="ops-meta-card">
+                <span class="ops-meta-label">Favorites</span>
+                <strong>{{ total_favorites }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Inventory Summary</h2>
+                <span>{{ report_range_label }}</span>
+            </div>
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Total Places</td><td>{{ total_places }}</td></tr>
+                        <tr><td>Total Services</td><td>{{ total_services }}</td></tr>
+                        <tr><td>Total Temple Guides</td><td>{{ total_temples }}</td></tr>
+                        <tr><td>Total Bookings</td><td>{{ total_bookings }}</td></tr>
+                        <tr><td>Total Reviews</td><td>{{ total_reviews }}</td></tr>
+                        <tr><td>Total Chat Sessions</td><td>{{ total_chat_sessions }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Service Categories</h2>
+                <span>Live service mix</span>
+            </div>
+            <div class="ops-category-list">
+                {% for service in service_types %}
+                <div class="ops-category-row">
+                    <span>{{ service.type|title }}</span>
+                    <strong>{{ service.count }}</strong>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No service data available.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-band">
+        <div class="ops-section-head">
+            <h2>Report Filters</h2>
+            <span>Stronger query controls with exports and print</span>
+        </div>
+        <form method="get" class="ops-report-toolbar ops-report-toolbar--dense">
+            <div class="ops-filter-group ops-filter-group--wide">
+                <label for="report-query">Search</label>
+                <input id="report-query" type="search" name="query" value="{{ report_query }}" placeholder="Place, service, user, notes, comment...">
+            </div>
+            <div class="ops-filter-group">
+                <label for="report-window">Window</label>
+                <select id="report-window" name="window">
+                    <option value="7d" {% if report_window == "7d" %}selected{% endif %}>Last 7 days</option>
+                    <option value="30d" {% if report_window == "30d" %}selected{% endif %}>Last 30 days</option>
+                    <option value="90d" {% if report_window == "90d" %}selected{% endif %}>Last 90 days</option>
+                    <option value="all" {% if report_window == "all" %}selected{% endif %}>All time</option>
+                </select>
+            </div>
+            <div class="ops-filter-group">
+                <label for="report-scope">Scope</label>
+                <select id="report-scope" name="scope">
+                    <option value="bookings" {% if report_scope == "bookings" %}selected{% endif %}>Bookings</option>
+                    <option value="places" {% if report_scope == "places" %}selected{% endif %}>Places</option>
+                    <option value="services" {% if report_scope == "services" %}selected{% endif %}>Services</option>
+                    <option value="reviews" {% if report_scope == "reviews" %}selected{% endif %}>Reviews</option>
+                </select>
+            </div>
+            <div class="ops-filter-group">
+                <label for="place-category">Place Category</label>
+                <select id="place-category" name="place_category">
+                    <option value="">All categories</option>
+                    {% for item in place_category_options %}
+                    <option value="{{ item.value }}" {% if report_place_category == item.value %}selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="ops-filter-group">
+                <label for="service-type">Service Type</label>
+                <select id="service-type" name="service_type">
+                    <option value="">All service types</option>
+                    {% for item in service_type_options %}
+                    <option value="{{ item.value }}" {% if report_service_type == item.value %}selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="ops-filter-group">
+                <label for="booking-status">Booking Status</label>
+                <select id="booking-status" name="booking_status">
+                    <option value="">All statuses</option>
+                    {% for item in booking_status_options %}
+                    <option value="{{ item.value }}" {% if report_booking_status == item.value %}selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="ops-filter-group">
+                <label for="min-rating">Min Rating</label>
+                <select id="min-rating" name="min_rating">
+                    <option value="">Any rating</option>
+                    <option value="3" {% if report_min_rating == "3" %}selected{% endif %}>3+</option>
+                    <option value="4" {% if report_min_rating == "4" %}selected{% endif %}>4+</option>
+                    <option value="4.5" {% if report_min_rating == "4.5" %}selected{% endif %}>4.5+</option>
+                </select>
+            </div>
+            <div class="ops-filter-group">
+                <label for="has-image">Image Filter</label>
+                <select id="has-image" name="has_image">
+                    <option value="" {% if not report_has_image %}selected{% endif %}>Any</option>
+                    <option value="yes" {% if report_has_image == "yes" %}selected{% endif %}>With images</option>
+                    <option value="no" {% if report_has_image == "no" %}selected{% endif %}>Without images</option>
+                </select>
+            </div>
+            <div class="ops-report-toolbar__actions">
+                <button type="submit" class="ops-report-button">Apply Filters</button>
+                <button type="submit" name="export" value="csv" class="ops-report-button ops-report-button--ghost">Export CSV</button>
+                <a href="/admin/reports/print/?scope={{ report_scope }}&window={{ report_window }}&query={{ report_query|urlencode }}&place_category={{ report_place_category|urlencode }}&service_type={{ report_service_type|urlencode }}&booking_status={{ report_booking_status|urlencode }}&min_rating={{ report_min_rating|urlencode }}&has_image={{ report_has_image|urlencode }}" target="_blank" class="ops-report-button ops-report-button--ghost">Printable View</a>
+            </div>
+        </form>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Place Preview Cards</h2>
+                <span>Thumbnail-led place quality pass</span>
+            </div>
+            <div class="ops-report-card-grid">
+                {% for place in report_place_cards %}
+                <article class="ops-report-card">
+                    {% if place.image_url %}
+                    <img src="{{ place.image_url }}" alt="{{ place.name }}" class="ops-report-card__image">
+                    {% else %}
+                    <div class="ops-report-card__image ops-report-card__image--empty">No image</div>
+                    {% endif %}
+                    <div class="ops-report-card__body">
+                        <strong>{{ place.name }}</strong>
+                        <span>{{ place.category }} | {{ place.rating }}/5</span>
+                        <p>{{ place.description|default:place.hours }}</p>
+                        <div class="ops-inline-actions">
+                            <a href="/admin/tourism/touristplace/{{ place.id }}/change/">Edit</a>
+                            <a href="/place/{{ place.id }}/" target="_blank">Open</a>
+                        </div>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="ops-empty">No place preview cards available.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Service and Review Preview</h2>
+                <span>Quick scan before export</span>
+            </div>
+            <div class="ops-preview-stack">
+                {% for service in report_service_cards %}
+                <article class="ops-preview-row">
+                    <div class="ops-preview-row__icon"><i class="fas fa-briefcase"></i></div>
+                    <div>
+                        <strong>{{ service.name }}</strong>
+                        <span>{{ service.type }} | {{ service.rating }}/5</span>
+                        <p>{{ service.address }}</p>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="ops-empty">No service previews available.</p>
+                {% endfor %}
+
+                {% for review in report_review_cards %}
+                <article class="ops-preview-row ops-preview-row--soft">
+                    <div class="ops-preview-row__icon"><i class="fas fa-star"></i></div>
+                    <div>
+                        <strong>{{ review.place }}</strong>
+                        <span>{{ review.user }} | {{ review.rating }}/5</span>
+                        <p>{{ review.comment|default:"No review comment." }}</p>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="ops-empty">No review previews available.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-band">
+        <div class="ops-section-head">
+            <h2>Report Preview</h2>
+            <span>Generated {{ report_generated_at|date:"d M Y, H:i" }}</span>
+        </div>
+        <div class="ops-table-wrap">
+            {% if report_scope == "places" %}
+            <table class="ops-table">
+                <thead>
+                    <tr><th>Preview</th><th>Place</th><th>Category</th><th>Rating</th><th>Hours</th></tr>
+                </thead>
+                <tbody>
+                    {% for place in report_place_rows %}
+                    <tr>
+                        <td>
+                            {% if place.images %}
+                            <img src="{{ place.images.url }}" alt="{{ place.name }}" class="ops-report-thumb">
+                            {% else %}
+                            <span class="ops-report-thumb ops-report-thumb--empty">NA</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ place.name }}</td>
+                        <td>{{ place.get_category_display }}</td>
+                        <td>{{ place.rating|floatformat:1 }}</td>
+                        <td>{{ place.visiting_hours }}</td>
+                    </tr>
+                    {% empty %}<tr><td colspan="5" class="ops-empty-cell">No place rows found.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+            {% elif report_scope == "services" %}
+            <table class="ops-table">
+                <thead>
+                    <tr><th>Service</th><th>Type</th><th>Rating</th><th>Contact</th></tr>
+                </thead>
+                <tbody>
+                    {% for service in report_service_rows %}
+                    <tr><td>{{ service.name }}</td><td>{{ service.get_type_display }}</td><td>{{ service.rating|floatformat:1 }}</td><td>{{ service.contact }}</td></tr>
+                    {% empty %}<tr><td colspan="4" class="ops-empty-cell">No service rows found.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+            {% elif report_scope == "reviews" %}
+            <table class="ops-table">
+                <thead>
+                    <tr><th>Place</th><th>User</th><th>Rating</th><th>Comment</th></tr>
+                </thead>
+                <tbody>
+                    {% for review in report_review_rows %}
+                    <tr><td>{{ review.place.name }}</td><td>{{ review.user.username }}</td><td>{{ review.rating }}</td><td>{{ review.comment|truncatechars:80 }}</td></tr>
+                    {% empty %}<tr><td colspan="4" class="ops-empty-cell">No review rows found.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <table class="ops-table">
+                <thead>
+                    <tr><th>Booking</th><th>Service</th><th>User</th><th>Status</th><th>Guests</th></tr>
+                </thead>
+                <tbody>
+                    {% for booking in report_rows %}
+                    <tr><td>#{{ booking.id }}</td><td>{{ booking.service.name }}</td><td>{{ booking.user.username }}</td><td>{{ booking.get_status_display }}</td><td>{{ booking.number_of_guests }}</td></tr>
+                    {% empty %}<tr><td colspan="5" class="ops-empty-cell">No booking rows found.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="ops-band">
+        <div class="ops-section-head">
+            <h2>Operational Shortcuts</h2>
+            <span>Working admin routes</span>
+        </div>
+        <div class="ops-actions">
+            <a class="ops-action" href="/admin/tourism/booking/">
+                <strong>Bookings</strong>
+                <span>Open all booking records</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/review/">
+                <strong>Reviews</strong>
+                <span>Moderate and inspect feedback</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/notification/">
+                <strong>Notifications</strong>
+                <span>Track unread user alerts</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/tripplan/">
+                <strong>Trip Plans</strong>
+                <span>Audit generated itinerary data</span>
+            </a>
+        </div>
+    </section>
+</div>
+{% endblock %}

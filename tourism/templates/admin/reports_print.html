@@ -1,0 +1,179 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Printable Report | Mathura Darshan Admin</title>
+    <link rel="stylesheet" href="{% static 'css/admin_dashboard.css' %}">
+    <style>
+        body { background: #f3f5fb; margin: 0; font-family: Inter, Segoe UI, sans-serif; color: #162333; }
+        .print-shell { max-width: 1120px; margin: 0 auto; padding: 28px; }
+        .print-cover, .print-page { background: #fff; border-radius: 24px; box-shadow: 0 20px 40px rgba(22, 35, 51, 0.08); margin-bottom: 24px; overflow: hidden; }
+        .print-cover { padding: 40px; background: linear-gradient(135deg, #183a5a 0%, #355cde 58%, #0f8b8d 100%); color: #fff; }
+        .print-brand { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .print-brand img { width: 220px; height: auto; }
+        .print-cover h1 { margin: 18px 0 12px; font-size: 40px; line-height: 1.05; }
+        .print-cover p { margin: 0; max-width: 700px; color: rgba(255,255,255,0.82); }
+        .print-cover__meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 28px; }
+        .print-cover__meta article { padding: 18px; border-radius: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); }
+        .print-cover__meta span { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,0.74); }
+        .print-cover__meta strong { display: block; margin-top: 10px; font-size: 26px; }
+        .print-page { padding: 28px 30px; page-break-after: always; }
+        .print-page--last { page-break-after: auto; }
+        .print-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+        .print-section-head h2 { margin: 0; font-size: 24px; }
+        .print-section-head span, .print-section-head p { margin: 6px 0 0; color: #5c6d80; }
+        .print-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+        .print-kpi { border: 1px solid #dbe4ee; border-radius: 16px; padding: 14px 16px; background: #f8fbfd; }
+        .print-kpi span { color: #5c6d80; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+        .print-kpi strong { display: block; font-size: 24px; margin-top: 8px; }
+        .print-card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .print-card { border: 1px solid #dbe4ee; border-radius: 18px; overflow: hidden; background: #fff; }
+        .print-card img, .print-card__empty { width: 100%; height: 180px; display: block; object-fit: cover; background: #edf2f7; }
+        .print-card__empty { display: grid; place-items: center; color: #6d7d90; font-weight: 700; }
+        .print-card__body { padding: 14px 16px 16px; }
+        .print-card__body strong { display: block; font-size: 16px; }
+        .print-card__body span { display: block; margin-top: 6px; color: #5c6d80; font-size: 13px; }
+        .print-card__body p { margin: 10px 0 0; color: #334155; font-size: 13px; line-height: 1.55; }
+        .print-table { width: 100%; border-collapse: collapse; }
+        .print-table th, .print-table td { padding: 11px 12px; border-bottom: 1px solid #dbe4ee; text-align: left; vertical-align: top; }
+        .print-table th { text-transform: uppercase; font-size: 12px; letter-spacing: .08em; color: #5c6d80; }
+        .print-thumb { width: 68px; height: 52px; object-fit: cover; border-radius: 10px; border: 1px solid #dbe4ee; }
+        .print-thumb--empty { display: inline-grid; place-items: center; width: 68px; height: 52px; border-radius: 10px; background: #eef3f7; color: #6d7d90; font-size: 12px; font-weight: 700; }
+        .print-notes { margin-top: 18px; padding: 16px 18px; background: #f8fbfd; border: 1px solid #dbe4ee; border-radius: 16px; color: #5c6d80; }
+        .print-trigger { position: fixed; right: 24px; bottom: 24px; }
+        @media print {
+            body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-shell { max-width: none; padding: 0; }
+            .print-cover, .print-page { box-shadow: none; border-radius: 0; margin: 0; }
+            .print-trigger { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-trigger ops-report-button" onclick="window.print()">Print / Save PDF</button>
+
+    <div class="print-shell">
+        <section class="print-cover">
+            <div class="print-brand">
+                <div>
+                    <img src="{% static 'img/admin-logo.png' %}" alt="Mathura Darshan">
+                    <h1>Mathura Darshan Admin Report</h1>
+                    <p>Branded operations report for tourism places, services, bookings, reviews, and user-facing content quality.</p>
+                </div>
+                <div>
+                    <p><strong>Scope:</strong> {{ report_scope|title }}</p>
+                    <p><strong>Window:</strong> {{ report_window }}</p>
+                    <p><strong>Generated:</strong> {{ report_generated_at|date:"d M Y, H:i" }}</p>
+                    <p><strong>Range:</strong> {{ report_range_label }}</p>
+                </div>
+            </div>
+            <div class="print-cover__meta">
+                <article><span>Places</span><strong>{{ total_places }}</strong></article>
+                <article><span>Bookings</span><strong>{{ total_bookings }}</strong></article>
+                <article><span>Reviews</span><strong>{{ total_reviews }}</strong></article>
+                <article><span>Services</span><strong>{{ total_services }}</strong></article>
+            </div>
+        </section>
+
+        <section class="print-page">
+            <div class="print-section-head">
+                <div>
+                    <h2>Executive Snapshot</h2>
+                    <p>Operational KPIs and active filter summary for this export.</p>
+                </div>
+            </div>
+            <div class="print-grid">
+                <div class="print-kpi"><span>Average Place Rating</span><strong>{{ avg_place_rating }}</strong></div>
+                <div class="print-kpi"><span>Average Review Rating</span><strong>{{ avg_review_rating }}</strong></div>
+                <div class="print-kpi"><span>Unread Alerts</span><strong>{{ unread_notifications }}</strong></div>
+                <div class="print-kpi"><span>Favorites</span><strong>{{ total_favorites }}</strong></div>
+            </div>
+            <div class="print-notes">
+                <strong>Active filters:</strong>
+                Search="{{ report_query|default:'Any' }}",
+                Place Category="{{ report_place_category|default:'Any' }}",
+                Service Type="{{ report_service_type|default:'Any' }}",
+                Booking Status="{{ report_booking_status|default:'Any' }}",
+                Min Rating="{{ report_min_rating|default:'Any' }}",
+                Image Filter="{{ report_has_image|default:'Any' }}"
+            </div>
+        </section>
+
+        <section class="print-page">
+            <div class="print-section-head">
+                <div>
+                    <h2>Visual Preview</h2>
+                    <p>Thumbnail and card-led review for the strongest place entries.</p>
+                </div>
+            </div>
+            <div class="print-card-grid">
+                {% for place in report_place_cards %}
+                <article class="print-card">
+                    {% if place.image_url %}
+                    <img src="{{ place.image_url }}" alt="{{ place.name }}">
+                    {% else %}
+                    <div class="print-card__empty">No image</div>
+                    {% endif %}
+                    <div class="print-card__body">
+                        <strong>{{ place.name }}</strong>
+                        <span>{{ place.category }} | {{ place.rating }}/5</span>
+                        <p>{{ place.description|default:place.hours }}</p>
+                    </div>
+                </article>
+                {% empty %}
+                <p>No place preview cards available for this filter set.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="print-page print-page--last">
+            <div class="print-section-head">
+                <div>
+                    <h2>Detailed Rows</h2>
+                    <p>Expanded table view aligned to the selected scope.</p>
+                </div>
+            </div>
+
+            {% if report_scope == "places" %}
+            <table class="print-table">
+                <thead><tr><th>Preview</th><th>Place</th><th>Category</th><th>Rating</th><th>Hours</th></tr></thead>
+                <tbody>
+                    {% for place in report_place_rows %}
+                    <tr>
+                        <td>
+                            {% if place.images %}
+                            <img src="{{ place.images.url }}" alt="{{ place.name }}" class="print-thumb">
+                            {% else %}
+                            <span class="print-thumb--empty">NA</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ place.name }}</td>
+                        <td>{{ place.get_category_display }}</td>
+                        <td>{{ place.rating|floatformat:1 }}</td>
+                        <td>{{ place.visiting_hours }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% elif report_scope == "services" %}
+            <table class="print-table">
+                <thead><tr><th>Service</th><th>Type</th><th>Rating</th><th>Contact</th></tr></thead>
+                <tbody>{% for service in report_service_rows %}<tr><td>{{ service.name }}</td><td>{{ service.get_type_display }}</td><td>{{ service.rating|floatformat:1 }}</td><td>{{ service.contact }}</td></tr>{% endfor %}</tbody>
+            </table>
+            {% elif report_scope == "reviews" %}
+            <table class="print-table">
+                <thead><tr><th>Place</th><th>User</th><th>Rating</th><th>Comment</th></tr></thead>
+                <tbody>{% for review in report_review_rows %}<tr><td>{{ review.place.name }}</td><td>{{ review.user.username }}</td><td>{{ review.rating }}</td><td>{{ review.comment }}</td></tr>{% endfor %}</tbody>
+            </table>
+            {% else %}
+            <table class="print-table">
+                <thead><tr><th>Booking</th><th>Service</th><th>User</th><th>Status</th><th>Guests</th></tr></thead>
+                <tbody>{% for booking in report_rows %}<tr><td>#{{ booking.id }}</td><td>{{ booking.service.name }}</td><td>{{ booking.user.username }}</td><td>{{ booking.get_status_display }}</td><td>{{ booking.number_of_guests }}</td></tr>{% endfor %}</tbody>
+            </table>
+            {% endif %}
+        </section>
+    </div>
+</body>
+</html>

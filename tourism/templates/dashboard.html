@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Mathura Darshan{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <section class="app-hero">
+                <span class="section-kicker"><i class="bi bi-flower1"></i> Braj spiritual journey</span>
+                {% if user.is_authenticated %}
+                    <h1>Namaste, {{ user.first_name|default:user.username }}. Begin your Mathura darshan.</h1>
+                {% else %}
+                    <h1>Experience Mathura with devotion, calm, and local guidance.</h1>
+                {% endif %}
+                <p>Find sacred temples, Yamuna ghats, festival moments, trusted services, and simple route help for your visit to Krishna's city.</p>
+                <div class="hero-actions">
+                    <a href="{% url 'explore' %}?category=temple" class="btn btn-primary">
+                        <i class="bi bi-building"></i> Explore Temples
+                    </a>
+                    <a href="{% url 'plan_trip' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-calendar2-heart"></i> Plan Your Trip
+                    </a>
+                    <a href="{% url 'rush_calculator' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-people"></i> Check Rush
+                    </a>
+                    <a href="{% url 'timetable_finder' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-clock-history"></i> Find Timetable
+                    </a>
+                    <a href="{% url 'chatbot' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-chat-dots"></i> Ask Guide
+                    </a>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card search-card">
+                <div class="card-body">
+                    <form method="get" action="{% url 'explore' %}" class="d-flex gap-2">
+                        <input type="text" class="form-control" name="q" placeholder="Search temples, ghats, food, routes...">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="bi bi-search"></i> Search
+                        </button>
+                    </form>
+                    {% if user.is_authenticated %}
+                        <button class="btn btn-secondary mt-2" onclick="getUserLocation()">
+                            <i class="bi bi-geo"></i> Find Nearby Places
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <span class="section-kicker"><i class="bi bi-clock-history"></i> Temple details</span>
+            <h3>Timetable and Details Finder</h3>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Find timetable</h5>
+                    <p class="card-text">Temple select karke Mangala Aarti, darshan aur evening timing quickly dekh lo.</p>
+                    <a href="{% url 'timetable_finder' %}" class="btn btn-primary">Open Timetable Finder</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Find full details</h5>
+                    <p class="card-text">Location, crowd level, dress code, parking, nearby attractions aur tips ek jagah milenge.</p>
+                    <a href="{% url 'timetable_finder' %}" class="btn btn-outline-primary">Check Temple Guide</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <span class="section-kicker"><i class="bi bi-people-fill"></i> Crowd estimate</span>
+            <h3>Rush Calculator</h3>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Check temple crowd</h5>
+                    <p class="card-text">Visit day, time slot aur festival context ke basis par expected rush level dekhiye.</p>
+                    <a href="{% url 'rush_calculator' %}" class="btn btn-primary">Open Rush Calculator</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Plan better timing</h5>
+                    <p class="card-text">Best window aur avoid window suggestions ke saath smarter darshan planning kijiye.</p>
+                    <a href="{% url 'rush_calculator' %}" class="btn btn-outline-primary">Estimate Now</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <span class="section-kicker"><i class="bi bi-wallet2"></i> Smart trip planning</span>
+            <h3>AI Plan Your Trip</h3>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Budget Planner</h5>
+                    <p class="card-text">Duration, travelers aur budget style dalo aur AI se estimated trip cost breakdown pao.</p>
+                    <a href="{% url 'plan_trip' %}" class="btn btn-primary">Open Planner</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Day-wise Itinerary</h5>
+                    <p class="card-text">Mathura aur Vrindavan ke liye darshan-first route, food suggestions aur daily budget plan ek hi jagah.</p>
+                    <a href="{% url 'plan_trip' %}" class="btn btn-outline-primary">Create My Plan</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <span class="section-kicker"><i class="bi bi-compass"></i> Choose your path</span>
+            <h3>Explore by Category</h3>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'explore' %}?category=temple" class="card category-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-building" style="font-size: 1.8rem;"></i>
+                    <h5 class="card-title mt-2">Temples</h5>
+                    <p class="text-muted small mb-0">Sacred darshan spots</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'explore' %}?category=ghat" class="card category-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-water" style="font-size: 1.8rem;"></i>
+                    <h5 class="card-title mt-2">Ghats</h5>
+                    <p class="text-muted small mb-0">Yamuna aarti and walks</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'explore' %}?category=museum" class="card category-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-image" style="font-size: 1.8rem;"></i>
+                    <h5 class="card-title mt-2">Museums</h5>
+                    <p class="text-muted small mb-0">Culture and history</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'explore' %}?category=park" class="card category-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-flower1" style="font-size: 1.8rem;"></i>
+                    <h5 class="card-title mt-2">Parks</h5>
+                    <p class="text-muted small mb-0">Quiet family spaces</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <span class="section-kicker"><i class="bi bi-stars"></i> Recommended darshan</span>
+            <h3>Featured Places</h3>
+        </div>
+        {% for place in places %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                {% if place.images %}
+                    <img src="{{ place.images.url }}" class="card-img-top" alt="{{ place.name }}">
+                {% else %}
+                    <div class="card-img-top bg-secondary" style="height: 200px;"></div>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ place.name }}</h5>
+                    <p class="card-text text-muted">{{ place.category|upper }}</p>
+                    <div class="mb-2">
+                        <i class="bi bi-star-fill text-warning"></i>
+                        <span>{{ place.rating|floatformat:1 }}/5</span>
+                    </div>
+                    <p class="card-text">{{ place.description|truncatewords:15 }}</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'place_detail' place.place_id %}" class="btn btn-primary btn-sm">View Details</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <span class="section-kicker"><i class="bi bi-calendar-heart"></i> Festival calendar</span>
+            <h3>Upcoming Events & Festivals</h3>
+            <div class="card">
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><i class="bi bi-palette text-warning"></i> <strong>Holi Festival</strong> - March 2026</li>
+                        <li class="list-group-item"><i class="bi bi-flower1 text-warning"></i> <strong>Janmashtami</strong> - August 2026</li>
+                        <li class="list-group-item"><i class="bi bi-stars text-warning"></i> <strong>Radha Ashtami</strong> - September 2026</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if notifications %}
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Your Notifications</h3>
+            {% for notification in notifications %}
+            <div class="alert alert-info">{{ notification.message }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function getUserLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            fetch(`/api/places/nearby/?lat=${lat}&lng=${lng}&radius=5`)
+                .then(r => r.json())
+                .then(data => {
+                    console.log('Nearby places:', data);
+                    alert(`Found ${data.length} nearby places!`);
+                });
+        });
+    }
+}
+</script>
+{% endblock %}

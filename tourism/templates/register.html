@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - Mathura Darshan{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+        <div class="col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <span class="section-kicker"><i class="bi bi-person-plus"></i> Start your journey</span>
+                        <h2 class="card-title mt-2">Create Account</h2>
+                        <p class="text-muted mb-0">Save favourites, services, and darshan plans.</p>
+                    </div>
+
+                    {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password_confirm" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" id="password_confirm" name="password_confirm" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Create Account</button>
+                    </form>
+
+                    <hr>
+
+                    <p class="text-center mb-0">
+                        Already have an account? <a href="{% url 'login' %}">Login here</a>
+                    </p>
+                    <p class="text-center">
+                        <a href="{% url 'dashboard' %}">Back to Home</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

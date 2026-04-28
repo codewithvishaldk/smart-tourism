@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% block title %}Temple Timetable Finder - Mathura Darshan{% endblock %}
+
+{% block extra_css %}
+<style>
+    .finder-shell {
+        display: grid;
+        gap: 24px;
+    }
+
+    .finder-hero,
+    .finder-panel {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+    }
+
+    .finder-hero {
+        padding: clamp(28px, 5vw, 56px);
+        background:
+            linear-gradient(135deg, rgba(255, 249, 236, 0.94), rgba(255, 237, 209, 0.68)),
+            radial-gradient(circle at top right, rgba(211, 154, 40, 0.18), transparent 40%);
+    }
+
+    :root[data-theme="dark"] .finder-hero {
+        background:
+            linear-gradient(135deg, rgba(29, 23, 37, 0.94), rgba(44, 34, 53, 0.88)),
+            radial-gradient(circle at top right, rgba(240, 170, 62, 0.15), transparent 40%);
+    }
+
+    .finder-panel .card-body {
+        padding: 24px;
+    }
+
+    .finder-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .finder-summary,
+    .finder-block {
+        padding: 18px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-soft);
+    }
+
+    .finder-empty {
+        padding: 28px;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .finder-list,
+    .finder-timing-list {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .finder-list li + li,
+    .finder-timing-list li + li {
+        margin-top: 8px;
+    }
+
+    .timing-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+    }
+
+    .finder-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .finder-loading {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .finder-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.45);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: finderSpin 0.7s linear infinite;
+    }
+
+    @keyframes finderSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (max-width: 991px) {
+        .finder-grid,
+        .finder-meta {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container finder-shell">
+    <section class="finder-hero">
+        <span class="section-kicker"><i class="bi bi-clock-history"></i> Temple guide</span>
+        <h1>Find Timetable and Temple Details</h1>
+        <p class="mb-0">Aapke diye hue Mathura-Vrindavan darshan data ko app mein use kar diya gaya hai. Ab temple choose karke alag se timetable ya full details instantly dekh sakte hain.</p>
+    </section>
+
+    <section class="finder-grid">
+        <div class="finder-panel card">
+            <div class="card-body">
+                <span class="section-kicker"><i class="bi bi-search"></i> Finder Options</span>
+                <h3 class="mb-3">Select temple and lookup mode</h3>
+
+                <form id="timetableFinderForm" class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label">Region</label>
+                        <select class="form-select" id="regionFilter">
+                            <option value="">All regions</option>
+                            {% for region in regions %}
+                            <option value="{{ region }}">{{ region }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label">Temple</label>
+                        <select class="form-select" name="guide_id" id="guideSelect" required>
+                            <option value="">Select temple</option>
+                            {% for guide in guides %}
+                            <option value="{{ guide.id }}" data-region="{{ guide.region }}">{{ guide.name }} ({{ guide.region }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary" id="findTimetableBtn" onclick="lookupTempleGuide('timetable')">
+                            <i class="bi bi-clock"></i> Find Timetable
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="findDetailsBtn" onclick="lookupTempleGuide('details')">
+                            <i class="bi bi-info-circle"></i> Find Full Details
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="finder-panel card">
+            <div class="card-body">
+                <span class="section-kicker"><i class="bi bi-stars"></i> Quick Uses</span>
+                <h4>What you can check</h4>
+                <div class="finder-block">
+                    <ul class="finder-list">
+                        <li>Mangala aarti, morning darshan, evening darshan timing.</li>
+                        <li>Location, main deity, crowd level, dress code and entry info.</li>
+                        <li>Nearby attractions, parking hints and local market/food notes.</li>
+                        <li>Separate quick timetable mode aur detailed temple info mode.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="finder-panel card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <span class="section-kicker"><i class="bi bi-list-check"></i> Result</span>
+                    <h3 class="mb-1">Timetable or full details</h3>
+                    <p class="text-muted mb-0">Temple choose karke lookup run kijiye.</p>
+                </div>
+            </div>
+
+            <div id="finderEmptyState" class="finder-empty">
+                Temple select karke `Find Timetable` ya `Find Full Details` par click kijiye.
+            </div>
+            <div id="finderError" class="alert alert-danger d-none" role="alert"></div>
+            <div id="finderResult" class="d-none"></div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const regionFilter = document.getElementById('regionFilter');
+    const guideSelect = document.getElementById('guideSelect');
+    const finderEmptyState = document.getElementById('finderEmptyState');
+    const finderError = document.getElementById('finderError');
+    const finderResult = document.getElementById('finderResult');
+    const findTimetableBtn = document.getElementById('findTimetableBtn');
+    const findDetailsBtn = document.getElementById('findDetailsBtn');
+
+    regionFilter.addEventListener('change', () => {
+        const selectedRegion = regionFilter.value;
+        const options = [...guideSelect.options];
+        options.forEach((option, index) => {
+            if (index === 0) {
+                option.hidden = false;
+                return;
+            }
+            option.hidden = Boolean(selectedRegion && option.dataset.region !== selectedRegion);
+        });
+        guideSelect.value = '';
+    });
+
+    async function lookupTempleGuide(mode) {
+        finderError.classList.add('d-none');
+        finderResult.classList.add('d-none');
+        finderEmptyState.classList.add('d-none');
+
+        const guideId = guideSelect.value;
+        if (!guideId) {
+            finderError.textContent = 'Please select a temple first.';
+            finderError.classList.remove('d-none');
+            finderEmptyState.classList.remove('d-none');
+            return;
+        }
+
+        setFinderLoading(true, mode);
+        try {
+            const response = await fetch(`/timetable-finder/api/?guide_id=${encodeURIComponent(guideId)}&mode=${encodeURIComponent(mode)}`);
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Temple lookup failed.');
+            }
+            renderFinderResult(data.guide, mode);
+        } catch (error) {
+            finderError.textContent = error.message || 'Temple lookup failed.';
+            finderError.classList.remove('d-none');
+            finderEmptyState.classList.remove('d-none');
+        } finally {
+            setFinderLoading(false, mode);
+        }
+    }
+
+    function setFinderLoading(isLoading, mode) {
+        const targetBtn = mode === 'timetable' ? findTimetableBtn : findDetailsBtn;
+        targetBtn.disabled = isLoading;
+        targetBtn.innerHTML = isLoading
+            ? '<span class="finder-loading"><span class="finder-spinner"></span> Loading...</span>'
+            : mode === 'timetable'
+                ? '<i class="bi bi-clock"></i> Find Timetable'
+                : '<i class="bi bi-info-circle"></i> Find Full Details';
+    }
+
+    function renderFinderResult(guide, mode) {
+        finderResult.classList.remove('d-none');
+        const timingHtml = renderTimings(guide.timings || []);
+
+        if (mode === 'timetable') {
+            finderResult.innerHTML = `
+                <div class="finder-summary">
+                    <h4>${escapeHtml(guide.name || '')}</h4>
+                    <p class="text-muted mb-3">${escapeHtml(guide.region || '')} | ${escapeHtml(guide.main_deity || '')}</p>
+                    <div class="finder-block">
+                        <h5>Temple Timetable</h5>
+                        ${timingHtml}
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        finderResult.innerHTML = `
+            <div class="finder-summary mb-3">
+                <h4>${escapeHtml(guide.name || '')}</h4>
+                <p class="mb-2">${escapeHtml(guide.famous_for || '')}</p>
+                <p class="text-muted mb-0">${escapeHtml(guide.location_text || '')}</p>
+            </div>
+
+            <div class="finder-meta mb-3">
+                <div class="finder-block"><strong>Main Deity</strong><p class="mb-0 mt-2 text-muted">${escapeHtml(guide.main_deity || '')}</p></div>
+                <div class="finder-block"><strong>Best Time</strong><p class="mb-0 mt-2 text-muted">${escapeHtml(guide.best_time_to_visit || '')}</p></div>
+                <div class="finder-block"><strong>Best Season</strong><p class="mb-0 mt-2 text-muted">${escapeHtml(guide.best_season || '')}</p></div>
+                <div class="finder-block"><strong>Crowd Level</strong><p class="mb-0 mt-2 text-muted">${escapeHtml(guide.crowd_level || '')}</p></div>
+                <div class="finder-block"><strong>Average Visit</strong><p class="mb-0 mt-2 text-muted">${escapeHtml(guide.average_visit_duration || '')}</p></div>
+                <div class="finder-block"><strong>Entry / VIP</strong><p class="mb-0 mt-2 text-muted">${escapeHtml(guide.entry_fee || '')}, ${escapeHtml(guide.vip_darshan || '')}</p></div>
+            </div>
+
+            <div class="finder-grid">
+                <div class="finder-block">
+                    <h5>Temple Timetable</h5>
+                    ${timingHtml}
+                </div>
+                <div class="finder-block">
+                    <h5>Temple Details</h5>
+                    <p><strong>History:</strong> ${escapeHtml(guide.history || '')}</p>
+                    <p><strong>Photography:</strong> ${escapeHtml(guide.photography_policy || '')}</p>
+                    <p><strong>Dress Code:</strong> ${escapeHtml(guide.dress_code || '')}</p>
+                    <p><strong>Parking:</strong> ${escapeHtml(guide.parking_info || '')}</p>
+                    <p><strong>Google Map:</strong> ${escapeHtml(guide.google_map_keyword || '')}</p>
+                    <p><strong>Food / Market:</strong> ${escapeHtml(guide.local_market_food || '')}</p>
+                    <p class="mb-0"><strong>Nearby:</strong> ${escapeHtml((guide.nearby_attractions || []).join(', '))}</p>
+                </div>
+            </div>
+
+            <div class="finder-block mt-3">
+                <h5>Important Tips</h5>
+                ${renderList(guide.important_tips || [])}
+            </div>
+        `;
+    }
+
+    function renderTimings(items) {
+        if (!items.length) {
+            return '<p class="text-muted mb-0">No timing data available.</p>';
+        }
+        return `<ul class="finder-timing-list">${items.map(item => `
+            <li>
+                <div class="timing-row">
+                    <strong>${escapeHtml(item.session || '')}</strong>
+                    <span>${escapeHtml(item.timing || '')}</span>
+                </div>
+            </li>
+        `).join('')}</ul>`;
+    }
+
+    function renderList(items) {
+        if (!items.length) {
+            return '<p class="text-muted mb-0">No extra tips available.</p>';
+        }
+        return `<ul class="finder-list">${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+{% endblock %}

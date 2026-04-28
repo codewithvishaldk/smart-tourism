@@ -1,0 +1,534 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ place.name }} - Mathura Darshan{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+    .place-hero-card,
+    .place-panel {
+        border: 1px solid rgba(117, 132, 161, 0.14);
+        border-radius: 22px;
+        box-shadow: 0 18px 36px rgba(16, 24, 40, 0.08);
+        overflow: hidden;
+    }
+
+    .place-hero-media {
+        height: 420px;
+        object-fit: cover;
+        width: 100%;
+        display: block;
+    }
+
+    .place-hero-fallback {
+        height: 420px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #e9eef9, #f4f7fc);
+        color: #55657d;
+        font-weight: 700;
+    }
+
+    .place-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: rgba(95, 88, 255, 0.1);
+        color: #5247d6;
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: .04em;
+    }
+
+    .place-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .place-stat {
+        padding: 16px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid rgba(117, 132, 161, 0.14);
+    }
+
+    .place-stat span {
+        display: block;
+        color: #667085;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        margin-bottom: 8px;
+    }
+
+    .place-stat strong {
+        font-size: 18px;
+        color: #101828;
+    }
+
+    .place-map-shell {
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(117, 132, 161, 0.16);
+        background: #f8fafc;
+    }
+
+    #placeDetailMap {
+        height: 340px;
+        width: 100%;
+    }
+
+    .place-map-note {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        color: #667085;
+        font-size: 14px;
+    }
+
+    .place-map-note a {
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .place-action-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .place-guide-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .place-guide-item {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid rgba(117, 132, 161, 0.14);
+    }
+
+    .place-guide-item strong,
+    .place-guide-item span {
+        display: block;
+    }
+
+    .place-guide-item strong {
+        font-size: 13px;
+        color: #667085;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .place-guide-item span {
+        color: #101828;
+    }
+
+    .place-sidebar-card .card-body p:last-child {
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 991px) {
+        .place-stat-grid,
+        .place-guide-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .place-hero-media,
+        .place-hero-fallback {
+            height: 280px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card place-hero-card">
+                {% if place.images %}
+                <img src="{{ place.images.url }}" class="place-hero-media" alt="{{ place.name }}">
+                {% else %}
+                <div class="place-hero-fallback">No place image available</div>
+                {% endif %}
+                <div class="card-body p-4 p-lg-5">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                        <div>
+                            <h1 class="mb-2">{{ place.name }}</h1>
+                            <span class="place-meta-chip">{{ place.category|upper }}</span>
+                        </div>
+                        <div class="text-lg-end">
+                            <div class="fw-semibold text-dark">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                {{ average_rating|floatformat:1 }}/5
+                            </div>
+                            <small class="text-muted">{{ reviews.count }} reviews</small>
+                        </div>
+                    </div>
+
+                    <div class="place-stat-grid mb-4">
+                        <div class="place-stat">
+                            <span>Visiting Hours</span>
+                            <strong>{{ place.visiting_hours }}</strong>
+                        </div>
+                        <div class="place-stat">
+                            <span>Location</span>
+                            <strong>{{ place.location_lat }}, {{ place.location_lng }}</strong>
+                        </div>
+                        <div class="place-stat">
+                            <span>Temple Match</span>
+                            <strong>{% if guide %}Detailed guide available{% else %}General place info{% endif %}</strong>
+                        </div>
+                    </div>
+
+                    <h4 class="mt-4">About</h4>
+                    <p class="mb-0">{{ place.description }}</p>
+
+                    {% if place.location_lat and place.location_lng %}
+                    <h4 class="mt-4">Location Map</h4>
+                    <div class="place-map-shell">
+                        <div id="placeDetailMap"></div>
+                        <div class="place-map-note">
+                            <span>OpenStreetMap based live location view for reliable loading.</span>
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ place.location_lat }},{{ place.location_lng }}" target="_blank" rel="noopener">Open in Google Maps</a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="place-action-row mt-4">
+                        {% if user.is_authenticated %}
+                            {% if is_favourite %}
+                            <button class="btn btn-danger" onclick="removeFavourite({{ place.place_id }})">
+                                <i class="bi bi-heart-fill"></i> Remove from Favourites
+                            </button>
+                            {% else %}
+                            <button class="btn btn-outline-danger" onclick="addFavourite({{ place.place_id }})">
+                                <i class="bi bi-heart"></i> Add to Favourites
+                            </button>
+                            {% endif %}
+                        {% else %}
+                        <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-danger">
+                            <i class="bi bi-heart"></i> Add to Favourites
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'navigation' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-map"></i> Get Directions
+                        </a>
+                        {% if guide %}
+                        <a href="{% url 'timetable_finder' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-clock-history"></i> Timetable & Details
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if guide %}
+            <div class="card place-panel mt-4">
+                <div class="card-header bg-white border-0 pt-4 px-4 px-lg-5">
+                    <h4 class="mb-0">Temple Guide Details</h4>
+                </div>
+                <div class="card-body p-4 p-lg-5 pt-3">
+                    <div class="place-guide-grid mb-4">
+                        <div class="place-guide-item"><strong>Main Deity</strong><span>{{ guide.main_deity|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Best Time</strong><span>{{ guide.best_time_to_visit|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Best Season</strong><span>{{ guide.best_season|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Crowd Level</strong><span>{{ guide.crowd_level|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Average Visit</strong><span>{{ guide.average_visit_duration|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Photography</strong><span>{{ guide.photography_policy|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Dress Code</strong><span>{{ guide.dress_code|default:"Not available" }}</span></div>
+                        <div class="place-guide-item"><strong>Entry / VIP</strong><span>{{ guide.entry_fee|default:"Not available" }}, {{ guide.vip_darshan|default:"Not available" }}</span></div>
+                    </div>
+
+                    <p><strong>Location:</strong> {{ guide.location_text }}</p>
+                    <p><strong>Famous For:</strong> {{ guide.famous_for }}</p>
+                    <p><strong>History:</strong> {{ guide.history }}</p>
+
+                    <h5 class="mt-4">Timetable</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Session</th>
+                                    <th>Timing</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for timing in guide.timings %}
+                                <tr>
+                                    <td>{{ timing.session }}</td>
+                                    <td>{{ timing.timing }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if guide.important_tips %}
+                    <h5 class="mt-4">Important Tips</h5>
+                    <ul class="mb-0">
+                        {% for tip in guide.important_tips %}
+                        <li>{{ tip }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card place-panel mt-4">
+                <div class="card-header bg-white border-0 pt-4 px-4 px-lg-5">
+                    <h4 class="mb-0">Reviews</h4>
+                </div>
+                <div class="card-body p-4 p-lg-5 pt-3">
+                    {% if user.is_authenticated %}
+                    <h5 class="mb-3">Add Your Review</h5>
+                    <form method="post" action="/api/reviews/" id="reviewForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="rating" class="form-label">Rating</label>
+                            <select class="form-select" id="rating" name="rating" required>
+                                <option value="">Select rating</option>
+                                <option value="1">1 - Poor</option>
+                                <option value="2">2 - Fair</option>
+                                <option value="3">3 - Good</option>
+                                <option value="4">4 - Very Good</option>
+                                <option value="5">5 - Excellent</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="comment" class="form-label">Comment</label>
+                            <textarea class="form-control" id="comment" name="comment" rows="3"></textarea>
+                        </div>
+                        <input type="hidden" name="place" value="{{ place.place_id }}">
+                        <button type="submit" class="btn btn-primary" id="reviewSubmitBtn">Submit Review</button>
+                    </form>
+                    <hr>
+                    {% else %}
+                    <p class="text-muted"><a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Login</a> to add a review</p>
+                    <hr>
+                    {% endif %}
+
+                    <h5 class="mb-3">Latest Reviews</h5>
+                    {% if reviews %}
+                        {% for review in reviews %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between gap-3">
+                                <strong>{{ review.user.username }}</strong>
+                                <span class="text-muted">{{ review.created_at|date:"d M Y" }}</span>
+                            </div>
+                            <div class="mb-1">
+                                {% for i in "12345" %}
+                                    {% if i|add:"0" <= review.rating %}
+                                    <i class="bi bi-star-fill text-warning"></i>
+                                    {% else %}
+                                    <i class="bi bi-star text-warning"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            <p class="mb-0">{{ review.comment }}</p>
+                            <hr>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <p class="text-muted mb-0">No reviews yet. Be the first to review!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card place-panel place-sidebar-card">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h5 class="mb-0">Quick Info</h5>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <p><strong>Category:</strong> <span class="badge bg-primary">{{ place.category|upper }}</span></p>
+                    <p><strong>Rating:</strong> {{ average_rating|floatformat:1 }}/5</p>
+                    <p><strong>Reviews:</strong> {{ reviews.count }}</p>
+                    <p><strong>Hours:</strong> {{ place.visiting_hours }}</p>
+                </div>
+            </div>
+
+            <div class="card place-panel place-sidebar-card mt-4">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h5 class="mb-0">Share</h5>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <button class="btn btn-outline-primary btn-sm" onclick="sharePlace()">
+                        <i class="bi bi-share"></i> Share
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const reviewForm = document.getElementById('reviewForm');
+if (reviewForm) {
+    reviewForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const submitButton = document.getElementById('reviewSubmitBtn');
+        const payload = {
+            place: Number(reviewForm.querySelector('[name="place"]').value),
+            rating: Number(reviewForm.querySelector('[name="rating"]').value),
+            comment: reviewForm.querySelector('[name="comment"]').value.trim()
+        };
+
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+
+        fetch('/api/reviews/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async response => {
+            if (response.status === 401) {
+                redirectToLogin();
+                return null;
+            }
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const message = data.detail || data.non_field_errors || data.error || JSON.stringify(data);
+                throw new Error(message);
+            }
+            return data;
+        })
+        .then((data) => {
+            if (!data) {
+                return;
+            }
+            alert('Review submitted successfully!');
+            location.reload();
+        })
+        .catch(error => {
+            alert('Review failed: ' + error.message);
+        })
+        .finally(() => {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Submit Review';
+        });
+    });
+}
+
+const mapElement = document.getElementById('placeDetailMap');
+if (mapElement && window.L) {
+    const lat = Number('{{ place.location_lat|default:"0" }}');
+    const lng = Number('{{ place.location_lng|default:"0" }}');
+    if (!Number.isNaN(lat) && !Number.isNaN(lng) && lat && lng) {
+        const map = L.map(mapElement, { scrollWheelZoom: false }).setView([lat, lng], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd'
+        }).addTo(map);
+        const marker = L.marker([lat, lng]).addTo(map);
+        marker.bindPopup('<strong>{{ place.name|escapejs }}</strong><br>{{ place.category|upper|escapejs }}').openPopup();
+        window.setTimeout(() => map.invalidateSize(), 180);
+    }
+}
+
+function addFavourite(placeId) {
+    fetch('/api/favourites/add_favourite/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ place_id: placeId })
+    })
+    .then(async response => {
+        if (response.status === 401) {
+            redirectToLogin();
+            return null;
+        }
+        return response.json();
+    })
+    .then((data) => {
+        if (!data) {
+            return;
+        }
+        alert('Added to favourites!');
+        location.reload();
+    });
+}
+
+function removeFavourite(placeId) {
+    fetch('/api/favourites/remove_favourite/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ place_id: placeId })
+    })
+    .then(async response => {
+        if (response.status === 401) {
+            redirectToLogin();
+            return null;
+        }
+        return response.json();
+    })
+    .then((data) => {
+        if (!data) {
+            return;
+        }
+        alert('Removed from favourites!');
+        location.reload();
+    });
+}
+
+function sharePlace() {
+    if (navigator.share) {
+        navigator.share({
+            title: '{{ place.name|escapejs }}',
+            text: '{{ place.description|truncatewords:20|escapejs }}',
+            url: window.location.href
+        });
+    } else {
+        alert('Share: ' + window.location.href);
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function redirectToLogin() {
+    window.location.href = `{% url 'login' %}?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+}
+</script>
+{% endblock %}

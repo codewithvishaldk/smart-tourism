@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block title %}Rush Calculator - Mathura Darshan{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rush-shell {
+        display: grid;
+        gap: 24px;
+    }
+
+    .rush-hero {
+        padding: clamp(28px, 5vw, 54px);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background:
+            linear-gradient(135deg, rgba(255, 248, 234, 0.92), rgba(255, 236, 201, 0.66)),
+            radial-gradient(circle at right top, rgba(211, 154, 40, 0.22), transparent 42%);
+        box-shadow: var(--shadow);
+    }
+
+    :root[data-theme="dark"] .rush-hero {
+        background:
+            linear-gradient(135deg, rgba(29, 23, 37, 0.94), rgba(44, 34, 53, 0.9)),
+            radial-gradient(circle at right top, rgba(240, 170, 62, 0.16), transparent 42%);
+    }
+
+    .rush-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.95fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .rush-panel {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+    }
+
+    .rush-panel .card-body {
+        padding: 24px;
+    }
+
+    .rush-score {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 104px;
+        height: 104px;
+        border-radius: 50%;
+        font-size: 2rem;
+        font-weight: 800;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        box-shadow: 0 18px 36px rgba(157, 79, 18, 0.24);
+    }
+
+    .rush-summary-card,
+    .rush-list-card {
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-soft);
+    }
+
+    .rush-list {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .rush-list li + li {
+        margin-top: 8px;
+    }
+
+    .rush-empty {
+        padding: 28px;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .rush-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .rush-loading {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .rush-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.45);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: rushSpin 0.7s linear infinite;
+    }
+
+    @keyframes rushSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @media (max-width: 991px) {
+        .rush-grid,
+        .rush-meta {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container rush-shell">
+    <section class="rush-hero">
+        <span class="section-kicker"><i class="bi bi-people-fill"></i> Crowd planning</span>
+        <h1>Rush Calculator</h1>
+        <p class="mb-0">Mandir, ghat ya kisi place par expected rush kitna hoga uska quick estimate nikaliye. Day, time aur festival context ke base par calculator aapko practical crowd level batayega.</p>
+    </section>
+
+    <section class="rush-grid">
+        <div class="rush-panel card">
+            <div class="card-body">
+                <span class="section-kicker"><i class="bi bi-sliders"></i> Check Rush</span>
+                <h3 class="mb-3">Estimate crowd before you go</h3>
+
+                <form id="rushCalculatorForm" class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Place</label>
+                        <select class="form-select" name="place_id" required>
+                            <option value="">Select place</option>
+                            {% for place in places %}
+                            <option value="{{ place.place_id }}">{{ place.name }} ({{ place.get_category_display }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Visit Day</label>
+                        <select class="form-select" name="visit_day">
+                            {% for day in days %}
+                            <option value="{{ day }}" {% if day == 'Saturday' %}selected{% endif %}>{{ day }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Time Slot</label>
+                        <select class="form-select" name="time_slot">
+                            {% for value, label in time_slots %}
+                            <option value="{{ value }}" {% if value == 'evening' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Special Day / Festival</label>
+                        <select class="form-select" name="special_event">
+                            {% for value, label in special_events %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary" id="calculateRushBtn">
+                            <i class="bi bi-speedometer2"></i> Calculate Rush
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="fillRushSample()">
+                            <i class="bi bi-lightning-charge"></i> Try Sample
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="rush-panel card">
+            <div class="card-body">
+                <span class="section-kicker"><i class="bi bi-info-circle"></i> How it works</span>
+                <h4>Quick crowd estimate</h4>
+                <div class="rush-list-card">
+                    <ul class="rush-list">
+                        <li>Temple aur ghat category ka natural footfall count hota hai.</li>
+                        <li>Weekend aur evening slots ko higher crowd weight milta hai.</li>
+                        <li>Festival periods jaise Holi aur Janmashtami ko extra rush factor diya jata hai.</li>
+                        <li>Result estimate hai, final situation local event aur weather par depend kar sakti hai.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="rush-panel card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <span class="section-kicker"><i class="bi bi-bar-chart-line"></i> Result</span>
+                    <h3 class="mb-1">Expected rush level</h3>
+                    <p class="text-muted mb-0">Crowd estimate aur visit tips yahan show honge.</p>
+                </div>
+            </div>
+
+            <div id="rushEmptyState" class="rush-empty">
+                Place, day aur time choose karke rush estimate nikaaliye.
+            </div>
+            <div id="rushError" class="alert alert-danger d-none" role="alert"></div>
+            <div id="rushResult" class="d-none"></div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const rushForm = document.getElementById('rushCalculatorForm');
+    const rushEmptyState = document.getElementById('rushEmptyState');
+    const rushError = document.getElementById('rushError');
+    const rushResult = document.getElementById('rushResult');
+    const calculateRushBtn = document.getElementById('calculateRushBtn');
+
+    rushForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        rushError.classList.add('d-none');
+        rushResult.classList.add('d-none');
+        rushEmptyState.classList.add('d-none');
+        setRushLoading(true);
+
+        const formData = new FormData(rushForm);
+        const payload = {
+            place_id: Number(formData.get('place_id')),
+            visit_day: formData.get('visit_day'),
+            time_slot: formData.get('time_slot'),
+            special_event: formData.get('special_event'),
+        };
+
+        try {
+            const response = await fetch('/rush-calculator/api/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Unable to calculate rush right now.');
+            }
+
+            renderRushResult(data.result);
+        } catch (error) {
+            rushError.textContent = error.message || 'Unable to calculate rush right now.';
+            rushError.classList.remove('d-none');
+            rushEmptyState.classList.remove('d-none');
+        } finally {
+            setRushLoading(false);
+        }
+    });
+
+    function setRushLoading(isLoading) {
+        calculateRushBtn.disabled = isLoading;
+        calculateRushBtn.innerHTML = isLoading
+            ? '<span class="rush-loading"><span class="rush-spinner"></span> Calculating...</span>'
+            : '<i class="bi bi-speedometer2"></i> Calculate Rush';
+    }
+
+    function fillRushSample() {
+        const placeSelect = rushForm.elements['place_id'];
+        if (placeSelect.options.length > 1) {
+            placeSelect.selectedIndex = 1;
+        }
+        rushForm.elements['visit_day'].value = 'Sunday';
+        rushForm.elements['time_slot'].value = 'evening';
+        rushForm.elements['special_event'].value = 'weekend';
+    }
+
+    function renderRushResult(result) {
+        rushResult.classList.remove('d-none');
+        rushResult.innerHTML = `
+            <div class="rush-grid">
+                <div class="rush-summary-card">
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                        <div class="rush-score">${escapeHtml(String(result.rush_score || 0))}</div>
+                        <div>
+                            <h4 class="mb-1">${escapeHtml(result.place_name || '')}</h4>
+                            <span class="badge bg-${escapeHtml(result.badge || 'secondary')}">${escapeHtml(result.rush_level || '')} Rush</span>
+                        </div>
+                    </div>
+                    <p>${escapeHtml(result.summary || '')}</p>
+                    <div class="rush-meta">
+                        <div class="rush-list-card">
+                            <strong>Best Window</strong>
+                            <p class="mb-0 mt-2 text-muted">${escapeHtml(result.best_window || '')}</p>
+                        </div>
+                        <div class="rush-list-card">
+                            <strong>Avoid If Possible</strong>
+                            <p class="mb-0 mt-2 text-muted">${escapeHtml(result.avoid_window || '')}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rush-list-card">
+                    <h5>Why this score</h5>
+                    ${renderRushList(result.factors || [])}
+                </div>
+            </div>
+
+            <div class="rush-list-card mt-3">
+                <h5>Recommended tips</h5>
+                ${renderRushList(result.recommendations || [])}
+            </div>
+        `;
+    }
+
+    function renderRushList(items) {
+        if (!items.length) {
+            return '<p class="text-muted mb-0">No extra details available.</p>';
+        }
+
+        return `<ul class="rush-list">${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,703 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Dashboard | Mathura Darshan Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin_dashboard.css' %}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<div class="ops-shell">
+    <section class="ops-hero">
+        <div>
+            <p class="ops-eyebrow">Operations Overview</p>
+            <h1>Mathura Darshan Admin</h1>
+            <p class="ops-subtitle">Bookings, places, temple data, reviews, and user activity in one view.</p>
+        </div>
+        <div class="ops-hero-meta">
+            <div class="ops-meta-card">
+                <span class="ops-meta-label">Bookings</span>
+                <strong>{{ total_bookings }}</strong>
+            </div>
+            <div class="ops-meta-card">
+                <span class="ops-meta-label">Unread Alerts</span>
+                <strong>{{ unread_notifications }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-stats-grid">
+        <article class="ops-stat ops-indigo">
+            <span class="ops-stat-label">Places</span>
+            <strong>{{ total_places }}</strong>
+            <p>Average rating {{ avg_place_rating }}/5</p>
+            <div class="ops-sparkline" data-series='{{ booking_trend_json|safe }}' data-tone="indigo"></div>
+        </article>
+        <article class="ops-stat ops-teal">
+            <span class="ops-stat-label">Users</span>
+            <strong>{{ total_users }}</strong>
+            <p>{{ new_users }} joined in the last 7 days</p>
+            <div class="ops-sparkline" data-series='{{ user_trend_json|safe }}' data-tone="teal"></div>
+        </article>
+        <article class="ops-stat ops-blue">
+            <span class="ops-stat-label">Services</span>
+            <strong>{{ total_services }}</strong>
+            <p>Average rating {{ avg_service_rating }}/5</p>
+            <div class="ops-sparkline" data-series='{{ booking_trend_json|safe }}' data-tone="blue"></div>
+        </article>
+        <article class="ops-stat ops-amber">
+            <span class="ops-stat-label">Reviews</span>
+            <strong>{{ total_reviews }}</strong>
+            <p>{{ recent_reviews }} added this week</p>
+            <div class="ops-sparkline" data-series='{{ review_trend_json|safe }}' data-tone="amber"></div>
+        </article>
+        <article class="ops-stat ops-green">
+            <span class="ops-stat-label">Temple Guides</span>
+            <strong>{{ total_temples }}</strong>
+            <p>Structured darshan knowledge base</p>
+        </article>
+        <article class="ops-stat ops-rose">
+            <span class="ops-stat-label">Chat Sessions</span>
+            <strong>{{ total_chat_sessions }}</strong>
+            <p>Saved assistant conversations</p>
+        </article>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Featured Places</h2>
+                <a href="/admin/tourism/touristplace/">View all</a>
+            </div>
+            <div class="ops-card-grid">
+                {% for place in featured_places %}
+                <article class="ops-place-card">
+                    {% if place.image_url %}
+                    <img src="{{ place.image_url }}" alt="{{ place.name }}" class="ops-place-card__image">
+                    {% else %}
+                    <div class="ops-place-card__image ops-place-card__image--empty">No image</div>
+                    {% endif %}
+                    <div class="ops-place-card__body">
+                        <div class="ops-place-card__head">
+                            <strong>{{ place.name }}</strong>
+                            <span>{{ place.rating }}/5</span>
+                        </div>
+                        <p>{{ place.category }}</p>
+                        <small>{{ place.visiting_hours }}</small>
+                        <div class="ops-place-card__actions">
+                            <a href="/admin/tourism/touristplace/{{ place.id }}/change/">Edit</a>
+                            <a href="/place/{{ place.id }}/" target="_blank">Open</a>
+                        </div>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="ops-empty">No places available for cards.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Nearby Places Map</h2>
+                <span>Routes, hotspot intensity, and live coordinate view</span>
+            </div>
+            <div class="ops-map-filters">
+                {% for item in dashboard_map_filters %}
+                <button type="button" class="ops-map-filter{% if item.value == default_map_filter %} is-active{% endif %}" data-map-filter="{{ item.value }}">
+                    {{ item.label }}
+                </button>
+                {% endfor %}
+            </div>
+            {% if has_map_points %}
+            <div class="ops-map-stack">
+                <div id="adminPlacesMap" class="ops-map-widget" data-default-filter="{{ default_map_filter }}"></div>
+                {% with first_place=featured_places|first %}
+                {% if first_place %}
+                <iframe
+                    id="adminPlacesMapFallback"
+                    class="ops-map-fallback"
+                    loading="lazy"
+                    src="https://www.google.com/maps?q={{ first_place.lat }},{{ first_place.lng }}&z=13&output=embed">
+                </iframe>
+                {% endif %}
+                {% endwith %}
+            </div>
+            <div class="ops-map-legend">
+                <span><i class="fas fa-route"></i> Suggested route path</span>
+                <span><i class="fas fa-location-dot"></i> Temple markers</span>
+                <span><i class="fas fa-circle"></i> Place markers</span>
+                <span><i class="fas fa-fire"></i> Rush heat by reviews, favorites, and rating</span>
+            </div>
+            <div class="ops-rush-strip">
+                {% for place in rush_summary %}
+                <div class="ops-rush-chip ops-rush-chip--{{ place.rush_level }}">
+                    <strong>{{ place.name }}</strong>
+                    <span>{{ place.rush_level|title }} rush</span>
+                    <small>{{ place.review_count }} reviews | {{ place.favorite_count }} favorites</small>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No rush insights available.</p>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="ops-map-widget ops-map-widget--empty">
+                <div>
+                    <strong>No usable coordinates found</strong>
+                    <p>Add valid latitude and longitude to tourist places and the route map will render here.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Place Gallery</h2>
+                <span>Fast visual scan for homepage-ready entries</span>
+            </div>
+            <div class="ops-gallery-grid">
+                {% for place in featured_places %}
+                <article class="ops-gallery-tile">
+                    {% if place.image_url %}
+                    <img src="{{ place.image_url }}" alt="{{ place.name }}">
+                    {% else %}
+                    <div class="ops-gallery-tile__empty">No image</div>
+                    {% endif %}
+                    <div class="ops-gallery-tile__overlay">
+                        <strong>{{ place.name }}</strong>
+                        <span>{{ place.category }} | {{ place.rating }}/5</span>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="ops-empty">No gallery items available.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Route Queue</h2>
+                <span>Suggested admin review flow for top places</span>
+            </div>
+            <div class="ops-route-list">
+                {% for place in featured_places %}
+                <div class="ops-route-item">
+                    <div class="ops-route-item__stop">{{ forloop.counter }}</div>
+                    <div>
+                        <strong>{{ place.name }}</strong>
+                        <span>{{ place.distance_label }} | {{ place.visiting_hours }}</span>
+                    </div>
+                    <a href="/admin/tourism/touristplace/{{ place.id }}/change/">Review</a>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No route points available.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-band">
+        <div class="ops-section-head">
+            <h2>Quick Actions</h2>
+            <span>Common admin flows</span>
+        </div>
+        <div class="ops-actions">
+            <a class="ops-action" href="/admin/tourism/touristplace/add/">
+                <strong>Add Place</strong>
+                <span>Create a new tourist place entry</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/localservice/add/">
+                <strong>Add Service</strong>
+                <span>Register hotels, cafes, or transport</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/booking/">
+                <strong>Review Bookings</strong>
+                <span>Check pending and confirmed requests</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/templeguide/">
+                <strong>Update Temple Guides</strong>
+                <span>Refresh darshan and timing details</span>
+            </a>
+            <a class="ops-action" href="/admin/reports/">
+                <strong>Open Reports</strong>
+                <span>Review category, booking, and usage snapshots</span>
+            </a>
+            <a class="ops-action" href="/admin/tourism/chathistory/">
+                <strong>Audit Chat Logs</strong>
+                <span>Inspect assistant sessions and saved prompts</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Places Mix</h2>
+                <span>Top category distribution</span>
+            </div>
+            <div class="ops-chart-wrap">
+                <canvas id="placesChart"></canvas>
+            </div>
+        </div>
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Booking Status</h2>
+                <span>Current request pipeline</span>
+            </div>
+            <div class="ops-chart-wrap ops-chart-wrap--compact">
+                <canvas id="bookingChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Booking Health</h2>
+                <span>Current operational mix</span>
+            </div>
+            <div class="ops-status-grid">
+                <div class="ops-status-card">
+                    <span>Pending</span>
+                    <strong>{{ pending_bookings }}</strong>
+                </div>
+                <div class="ops-status-card">
+                    <span>Confirmed</span>
+                    <strong>{{ confirmed_bookings }}</strong>
+                </div>
+                <div class="ops-status-card">
+                    <span>Completed</span>
+                    <strong>{{ completed_bookings }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Place Categories</h2>
+                <span>Current inventory split</span>
+            </div>
+            <div class="ops-category-list">
+                {% for category in place_categories %}
+                <div class="ops-category-row">
+                    <span>{{ category.category|title }}</span>
+                    <strong>{{ category.count }}</strong>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No place categories available.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-two-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Top Places</h2>
+                <a href="/admin/tourism/touristplace/">View all</a>
+            </div>
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for place in top_places %}
+                        <tr>
+                            <td>{{ place.name }}</td>
+                            <td>{{ place.get_category_display }}</td>
+                            <td>{{ place.rating|floatformat:1 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="ops-empty-cell">No places available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Top Services</h2>
+                <a href="/admin/tourism/localservice/">View all</a>
+            </div>
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for service in top_services %}
+                        <tr>
+                            <td>{{ service.name }}</td>
+                            <td>{{ service.get_type_display }}</td>
+                            <td>{{ service.rating|floatformat:1 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="ops-empty-cell">No services available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-three-col">
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Recent Bookings</h2>
+                <a href="/admin/tourism/booking/">View all</a>
+            </div>
+            <div class="ops-activity-list">
+                {% for booking in recent_booking_items %}
+                <div class="ops-activity-item">
+                    <div>
+                        <strong>{{ booking.service.name }}</strong>
+                        <span>{{ booking.user.username }} | {{ booking.get_status_display }}</span>
+                    </div>
+                    <small>{{ booking.booking_date|date:"d M, H:i" }}</small>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No recent bookings.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Recent Reviews</h2>
+                <a href="/admin/tourism/review/">View all</a>
+            </div>
+            <div class="ops-activity-list">
+                {% for review in recent_review_items %}
+                <div class="ops-activity-item">
+                    <div>
+                        <strong>{{ review.place.name }}</strong>
+                        <span>{{ review.user.username }} | {{ review.rating }}/5</span>
+                    </div>
+                    <small>{{ review.created_at|date:"d M, H:i" }}</small>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No recent reviews.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="ops-section-head">
+                <h2>Recent AI Chats</h2>
+                <a href="/admin/tourism/chathistory/">View all</a>
+            </div>
+            <div class="ops-activity-list">
+                {% for chat in recent_chat_items %}
+                <div class="ops-activity-item">
+                    <div>
+                        <strong>{{ chat.user.username }}</strong>
+                        <span>{{ chat.model_name|default:"AI session" }}</span>
+                    </div>
+                    <small>{{ chat.created_at|date:"d M, H:i" }}</small>
+                </div>
+                {% empty %}
+                <p class="ops-empty">No recent chat activity.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+
+{{ place_categories_json|json_script:"place-categories-data" }}
+{{ booking_status_json|json_script:"booking-status-data" }}
+{{ map_places_json|json_script:"map-places-data" }}
+{{ map_routes_json|json_script:"map-routes-data" }}
+{{ map_heat_json|json_script:"map-heat-data" }}
+{{ trend_labels_json|json_script:"trend-labels-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<script>
+    (function () {
+        const placesData = JSON.parse(document.getElementById('place-categories-data').textContent);
+        const bookingData = JSON.parse(document.getElementById('booking-status-data').textContent);
+        const mapPlaces = JSON.parse(document.getElementById('map-places-data').textContent);
+        const mapRoutes = JSON.parse(document.getElementById('map-routes-data').textContent);
+        const mapHeat = JSON.parse(document.getElementById('map-heat-data').textContent);
+        const trendLabels = JSON.parse(document.getElementById('trend-labels-data').textContent);
+
+        const placeLabels = placesData.map(item => item.label);
+        const placeValues = placesData.map(item => item.value);
+        const bookingLabels = bookingData.map(item => item.label);
+        const bookingValues = bookingData.map(item => item.value);
+
+        const sharedOptions = {
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#425466',
+                        boxWidth: 14,
+                        usePointStyle: true,
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#627487' },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(98, 116, 135, 0.12)' },
+                    ticks: { color: '#627487', precision: 0 },
+                },
+            },
+        };
+
+        const placesChart = document.getElementById('placesChart');
+        if (placesChart) {
+            new Chart(placesChart, {
+                type: 'bar',
+                data: {
+                    labels: placeLabels,
+                    datasets: [{
+                        data: placeValues,
+                        backgroundColor: ['#355cde', '#0f8b8d', '#0077b6', '#c97a12', '#25855a', '#b54769'],
+                        borderRadius: 10,
+                    }],
+                },
+                options: {
+                    ...sharedOptions,
+                    plugins: { legend: { display: false } },
+                },
+            });
+        }
+
+        const bookingChart = document.getElementById('bookingChart');
+        if (bookingChart) {
+            new Chart(bookingChart, {
+                type: 'doughnut',
+                data: {
+                    labels: bookingLabels,
+                    datasets: [{
+                        data: bookingValues,
+                        backgroundColor: ['#e0a21a', '#3f7cff', '#2c9b66', '#d45b73'],
+                        borderWidth: 0,
+                    }],
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#425466',
+                                boxWidth: 12,
+                                usePointStyle: true,
+                            },
+                        },
+                    },
+                    cutout: '68%',
+                },
+            });
+        }
+
+        const mapEl = document.getElementById('adminPlacesMap');
+        const mapFallbackEl = document.getElementById('adminPlacesMapFallback');
+        if (mapEl && mapPlaces.length && window.L) {
+            const defaultFilter = mapEl.dataset.defaultFilter || 'all';
+            const first = mapPlaces[0];
+            const map = L.map(mapEl, {
+                scrollWheelZoom: false,
+                dragging: true,
+                zoomControl: true,
+                attributionControl: true,
+            }).setView([first.lat, first.lng], 11);
+            mapEl.classList.add('is-ready');
+            if (mapFallbackEl) {
+                mapFallbackEl.classList.add('is-hidden');
+            }
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd'
+            }).addTo(map);
+            const markers = [];
+            const polylines = [];
+            const allBounds = mapPlaces.map((place) => [place.lat, place.lng]);
+
+            mapPlaces.forEach((place) => {
+                const rushStyles = {
+                    high: { color: '#d45b73', fillColor: '#ffd7df', radius: 11 },
+                    medium: { color: '#c97a12', fillColor: '#ffe1ad', radius: 9 },
+                    low: { color: '#2c9b66', fillColor: '#d7f5e7', radius: 8 },
+                };
+                const markerStyle = rushStyles[place.rush_level] || rushStyles.low;
+                const markerStroke = place.is_temple ? '#b45309' : markerStyle.color;
+                const markerFill = place.is_temple ? '#fde7b0' : markerStyle.fillColor;
+                const marker = L.circleMarker([place.lat, place.lng], {
+                    radius: place.is_temple ? markerStyle.radius + 2 : markerStyle.radius,
+                    color: markerStroke,
+                    weight: 2,
+                    fillColor: markerFill,
+                    fillOpacity: 1,
+                });
+                marker.bindPopup(
+                    '<strong>' + place.stop + '. ' + place.name + '</strong><br>' +
+                    (place.is_temple ? 'Temple location' : 'Place location') + ' - ' + place.category + '<br>' +
+                    'Rush: ' + place.rush_level.toUpperCase() + ' (' + place.rush_score + ')<br>' +
+                    'Rating: ' + place.rating + '/5<br>' +
+                    'Reviews: ' + place.review_count + ' | Favorites: ' + place.favorite_count + '<br>' +
+                    place.visiting_hours
+                );
+                marker.bindTooltip(place.name + ' - ' + place.rush_level + ' rush', {
+                    direction: 'top',
+                    offset: [0, -8],
+                });
+                markers.push({ marker, place });
+            });
+
+            mapRoutes.forEach((segment) => {
+                const line = L.polyline(segment.points, {
+                    color: '#7c4dff',
+                    weight: 4,
+                    opacity: 0.78,
+                    dashArray: '10 8',
+                });
+                polylines.push(line);
+            });
+
+            let heatLayer = null;
+            if (window.L.heatLayer && mapHeat.length) {
+                heatLayer = L.heatLayer(mapHeat, {
+                    radius: 26,
+                    blur: 18,
+                    maxZoom: 12,
+                    gradient: {
+                        0.2: '#7dd3fc',
+                        0.45: '#60a5fa',
+                        0.7: '#8b5cf6',
+                        1.0: '#f59e0b'
+                    }
+                });
+            }
+
+            function applyMapFilter(category) {
+                const filteredPlaces = category === 'all'
+                    ? mapPlaces
+                    : mapPlaces.filter((place) => place.category_key === category);
+                const filteredHeat = category === 'all'
+                    ? mapHeat
+                    : mapHeat.filter((item, index) => mapPlaces[index] && mapPlaces[index].category_key === category);
+
+                markers.forEach(({ marker }) => {
+                    if (map.hasLayer(marker)) {
+                        map.removeLayer(marker);
+                    }
+                });
+                polylines.forEach((line) => {
+                    if (map.hasLayer(line)) {
+                        map.removeLayer(line);
+                    }
+                });
+                if (heatLayer && map.hasLayer(heatLayer)) {
+                    map.removeLayer(heatLayer);
+                }
+
+                const bounds = [];
+                markers.forEach(({ marker, place }) => {
+                    if (category === 'all' || place.category_key === category) {
+                        marker.addTo(map);
+                        bounds.push([place.lat, place.lng]);
+                    }
+                });
+
+                if (category === 'all') {
+                    polylines.forEach((line) => line.addTo(map));
+                }
+
+                if (heatLayer && filteredHeat.length) {
+                    heatLayer.setLatLngs(filteredHeat);
+                    heatLayer.addTo(map);
+                }
+
+                if (bounds.length > 1) {
+                    map.fitBounds(bounds, { padding: [24, 24] });
+                } else if (bounds.length === 1) {
+                    map.setView(bounds[0], 13);
+                }
+
+                if (bounds.length) {
+                    map.setMaxBounds(L.latLngBounds(bounds).pad(0.18));
+                    map.options.maxBoundsViscosity = 0.85;
+                } else if (allBounds.length) {
+                    map.setMaxBounds(L.latLngBounds(allBounds).pad(0.18));
+                    map.options.maxBoundsViscosity = 0.85;
+                }
+            }
+
+            applyMapFilter(defaultFilter);
+
+            document.querySelectorAll('.ops-map-filter').forEach((button) => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.ops-map-filter').forEach((item) => item.classList.remove('is-active'));
+                    button.classList.add('is-active');
+                    applyMapFilter(button.dataset.mapFilter);
+                });
+            });
+
+            const syncMapSize = () => window.setTimeout(() => map.invalidateSize(), 220);
+            window.setTimeout(syncMapSize, 180);
+            window.addEventListener('load', syncMapSize);
+            window.addEventListener('resize', syncMapSize);
+            document.addEventListener('transitionend', syncMapSize);
+            document.querySelectorAll('[data-widget="pushmenu"]').forEach((toggle) => {
+                toggle.addEventListener('click', syncMapSize);
+            });
+        }
+
+        document.querySelectorAll('.ops-sparkline').forEach((el) => {
+            const series = JSON.parse(el.dataset.series || '[]');
+            const toneMap = {
+                indigo: '#355cde',
+                teal: '#0f8b8d',
+                amber: '#c97a12',
+                blue: '#0077b6',
+            };
+            const canvas = document.createElement('canvas');
+            el.appendChild(canvas);
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        data: series,
+                        borderColor: toneMap[el.dataset.tone] || '#355cde',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.42,
+                        pointRadius: 0,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { x: { display: false }, y: { display: false } },
+                    elements: { line: { capBezierPoints: true } },
+                },
+            });
+        });
+    }());
+</script>
+{% endblock %}

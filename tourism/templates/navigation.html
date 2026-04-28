@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+
+{% block title %}Navigation & Directions - Mathura Darshan{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+    #map {
+        width: 100%;
+        height: 600px;
+        border-radius: 18px;
+        border: 1px solid rgba(117, 132, 161, 0.16);
+    }
+
+    .destination-search-wrap {
+        position: relative;
+    }
+
+    .destination-suggestions {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        z-index: 30;
+        max-height: 280px;
+        overflow-y: auto;
+        padding: 8px;
+        border: 1px solid rgba(117, 132, 161, 0.18);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 18px 34px rgba(38, 24, 15, 0.14);
+    }
+
+    .destination-suggestions[hidden] {
+        display: none !important;
+    }
+
+    .destination-suggestion {
+        width: 100%;
+        padding: 12px 14px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        text-align: left;
+    }
+
+    .destination-suggestion:hover {
+        background: rgba(157, 79, 18, 0.08);
+    }
+
+    .destination-suggestion strong,
+    .destination-suggestion span {
+        display: block;
+    }
+
+    .destination-suggestion span {
+        color: #6c5a4a;
+        font-size: 0.88rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <span class="section-kicker"><i class="bi bi-signpost-split"></i> Route guidance</span>
+    <h1 class="mb-4">Navigation & Directions</h1>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="destination" class="form-label">Enter Destination</label>
+                            <div class="destination-search-wrap">
+                                <input type="text" class="form-control" id="destination" placeholder="Search place or address..." autocomplete="off">
+                                <div id="destinationSuggestions" class="destination-suggestions" hidden></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="radius" class="form-label">Search Radius (km)</label>
+                            <input type="number" class="form-control" id="radius" value="5" min="1" max="50">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Action</label>
+                            <div class="d-grid">
+                                <button class="btn btn-primary" onclick="searchDestination()">Find Destination</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary" onclick="openExternalDirections()">Open Turn-by-Turn Directions</button>
+                    <button class="btn btn-secondary" onclick="getNearbyPlaces()">Find Nearby Places</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Route Details</h5>
+                </div>
+                <div class="card-body" id="routeDetails">
+                    <p class="text-muted mb-0">Search a destination or select a nearby place to preview route points.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Nearby Places</h5>
+                </div>
+                <div class="card-body" id="nearbyList">
+                    <p class="text-muted mb-0">Getting location...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map;
+let userLocation = null;
+let destinationLocation = null;
+let userMarker = null;
+let destinationMarker = null;
+let routeLine = null;
+let nearbyMarkers = [];
+let suggestionAbortController = null;
+
+function initMap() {
+    const mathuraCenter = [27.5891, 77.7064];
+    map = L.map('map', { scrollWheelZoom: false }).setView(mathuraCenter, 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd'
+    }).addTo(map);
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            userLocation = [position.coords.latitude, position.coords.longitude];
+            userMarker = L.marker(userLocation).addTo(map).bindPopup('Your location');
+            map.setView(userLocation, 13);
+            getNearbyPlaces();
+        }, function() {
+            document.getElementById('nearbyList').innerHTML = '<p class="text-muted mb-0">Location unavailable. Nearby places need your location.</p>';
+        });
+    }
+}
+
+function renderRoutePreview() {
+    if (!map || !userLocation || !destinationLocation) {
+        return;
+    }
+    if (routeLine) {
+        map.removeLayer(routeLine);
+    }
+    routeLine = L.polyline([userLocation, destinationLocation], {
+        color: '#5b54f2',
+        weight: 5,
+        opacity: 0.85,
+        dashArray: '10 8'
+    }).addTo(map);
+    map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+
+    const lat1 = userLocation[0];
+    const lng1 = userLocation[1];
+    const lat2 = destinationLocation[0];
+    const lng2 = destinationLocation[1];
+    const distanceKm = haversineDistance(lat1, lng1, lat2, lng2);
+
+    document.getElementById('routeDetails').innerHTML = `
+        <div class="d-grid gap-2">
+            <div><strong>Destination:</strong> ${document.getElementById('destination').value || 'Selected nearby place'}</div>
+            <div><strong>Preview Distance:</strong> ${distanceKm.toFixed(1)} km</div>
+            <div><strong>Mode:</strong> Live map preview with external turn-by-turn handoff</div>
+            <a class="btn btn-primary btn-sm mt-2" href="${buildGoogleDirectionsUrl()}" target="_blank" rel="noopener">Open Full Directions</a>
+        </div>
+    `;
+}
+
+function buildGoogleDirectionsUrl() {
+    if (!userLocation || !destinationLocation) {
+        return 'https://www.google.com/maps';
+    }
+    return `https://www.google.com/maps/dir/?api=1&origin=${userLocation[0]},${userLocation[1]}&destination=${destinationLocation[0]},${destinationLocation[1]}&travelmode=driving`;
+}
+
+function openExternalDirections() {
+    if (!destinationLocation) {
+        alert('Please search or select a destination first.');
+        return;
+    }
+    window.open(buildGoogleDirectionsUrl(), '_blank', 'noopener');
+}
+
+function searchDestination() {
+    const destination = document.getElementById('destination').value.trim();
+    if (!destination) {
+        alert('Please enter a destination');
+        return;
+    }
+
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(destination + ', Mathura')}`)
+        .then(r => r.json())
+        .then(results => {
+            if (!results.length) {
+                throw new Error('Destination not found');
+            }
+            const result = results[0];
+            destinationLocation = [Number(result.lat), Number(result.lon)];
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
+            }
+            destinationMarker = L.marker(destinationLocation).addTo(map).bindPopup(destination).openPopup();
+            renderRoutePreview();
+        })
+        .catch(error => {
+            alert(error.message || 'Could not find destination');
+        });
+}
+
+function renderSuggestions(places) {
+    const box = document.getElementById('destinationSuggestions');
+    if (!box) return;
+
+    if (!places.length) {
+        box.innerHTML = '<div class="px-2 py-2 text-muted">No matching places found.</div>';
+        box.hidden = false;
+        return;
+    }
+
+    box.innerHTML = places.map(place => `
+        <button
+            type="button"
+            class="destination-suggestion"
+            onclick="selectSuggestedPlace(${place.location_lat}, ${place.location_lng}, '${escapeJs(place.name)}')">
+            <strong>${place.name}</strong>
+            <span>${place.category} | Rating ${place.rating}/5</span>
+        </button>
+    `).join('');
+    box.hidden = false;
+}
+
+function hideSuggestions() {
+    const box = document.getElementById('destinationSuggestions');
+    if (box) {
+        box.hidden = true;
+    }
+}
+
+function fetchSuggestions(query) {
+    if (suggestionAbortController) {
+        suggestionAbortController.abort();
+    }
+
+    suggestionAbortController = new AbortController();
+    fetch(`/api/places/suggestions/?query=${encodeURIComponent(query)}`, {
+        signal: suggestionAbortController.signal
+    })
+        .then(r => r.json())
+        .then(renderSuggestions)
+        .catch(error => {
+            if (error.name !== 'AbortError') {
+                hideSuggestions();
+            }
+        });
+}
+
+function getNearbyPlaces() {
+    if (!userLocation) {
+        document.getElementById('nearbyList').innerHTML = '<p class="text-muted mb-0">Please enable location.</p>';
+        return;
+    }
+
+    const radius = document.getElementById('radius').value || 5;
+
+    fetch(`/api/places/nearby/?lat=${userLocation[0]}&lng=${userLocation[1]}&radius=${radius}`)
+        .then(r => r.json())
+        .then(places => {
+            displayNearbyPlaces(places);
+            displayMarkers(places);
+        })
+        .catch(() => {
+            document.getElementById('nearbyList').innerHTML = '<p class="text-muted mb-0">Nearby places could not be loaded.</p>';
+        });
+}
+
+function displayNearbyPlaces(places) {
+    let html = '';
+    if (!places.length) {
+        html = '<p class="text-muted mb-0">No places nearby</p>';
+    } else {
+        places.forEach(place => {
+            html += `
+                <div class="mb-3 pb-3 border-bottom">
+                    <h6 class="mb-1">${place.name}</h6>
+                    <small class="text-muted d-block mb-1">${place.category}</small>
+                    <p class="mb-2"><i class="bi bi-star-fill text-warning"></i> ${place.rating}/5</p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-outline-primary" onclick="selectNearbyPlace(${place.location_lat}, ${place.location_lng}, '${escapeJs(place.name)}')">Preview Route</button>
+                        <a href="/place/${place.place_id}/" class="btn btn-sm btn-primary">View</a>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    document.getElementById('nearbyList').innerHTML = html;
+}
+
+function displayMarkers(places) {
+    nearbyMarkers.forEach(marker => map.removeLayer(marker));
+    nearbyMarkers = [];
+    places.forEach(place => {
+        const marker = L.circleMarker([place.location_lat, place.location_lng], {
+            radius: 7,
+            color: '#9d4f12',
+            fillColor: '#ffd580',
+            fillOpacity: 0.9,
+            weight: 2
+        }).addTo(map);
+        marker.bindPopup(`<strong>${place.name}</strong><br>${place.category}<br>Rating: ${place.rating}/5`);
+        nearbyMarkers.push(marker);
+    });
+}
+
+function selectNearbyPlace(lat, lng, name) {
+    document.getElementById('destination').value = name;
+    destinationLocation = [Number(lat), Number(lng)];
+    if (destinationMarker) {
+        map.removeLayer(destinationMarker);
+    }
+    destinationMarker = L.marker(destinationLocation).addTo(map).bindPopup(name).openPopup();
+    renderRoutePreview();
+}
+
+function selectSuggestedPlace(lat, lng, name) {
+    hideSuggestions();
+    selectNearbyPlace(lat, lng, name);
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+    const toRad = (value) => value * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function escapeJs(value) {
+    return String(value).replace(/'/g, "\\'");
+}
+
+window.addEventListener('load', initMap);
+
+document.addEventListener('DOMContentLoaded', function () {
+    const destinationInput = document.getElementById('destination');
+    const suggestionsBox = document.getElementById('destinationSuggestions');
+
+    if (!destinationInput || !suggestionsBox) {
+        return;
+    }
+
+    destinationInput.addEventListener('input', function () {
+        const query = destinationInput.value.trim();
+        if (query.length < 2) {
+            hideSuggestions();
+            return;
+        }
+        fetchSuggestions(query);
+    });
+
+    destinationInput.addEventListener('focus', function () {
+        const query = destinationInput.value.trim();
+        if (query.length >= 2) {
+            fetchSuggestions(query);
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('.destination-search-wrap')) {
+            hideSuggestions();
+        }
+    });
+});
+</script>
+{% endblock %}

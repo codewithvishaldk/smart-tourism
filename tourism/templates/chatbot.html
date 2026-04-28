@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block title %}Spiritual Guide - Mathura Darshan{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="mb-4">
+                <span class="section-kicker"><i class="bi bi-chat-heart"></i> AI travel guide</span>
+                <h1>Ask your Mathura spiritual guide</h1>
+                <p class="text-muted">Get quick help for darshan planning, temple timings, ghats, food, hotels, festivals, and routes.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-flower1"></i> Mathura Darshan Assistant</h5>
+                </div>
+                <div class="card-body">
+                    <div id="chatBox"></div>
+
+                    <div class="suggestion-chips">
+                        <span class="chip" onclick="sendSuggestion('Tell me about Krishna Janmabhoomi')">
+                            <i class="bi bi-building"></i> Temples
+                        </span>
+                        <span class="chip" onclick="sendSuggestion('What is the weather like in Mathura?')">
+                            <i class="bi bi-cloud-sun"></i> Weather
+                        </span>
+                        <span class="chip" onclick="sendSuggestion('Where can I eat sattvik food in Mathura?')">
+                            <i class="bi bi-cup-hot"></i> Food
+                        </span>
+                        <span class="chip" onclick="sendSuggestion('Where to stay near temples?')">
+                            <i class="bi bi-house-heart"></i> Hotels
+                        </span>
+                        <span class="chip" onclick="sendSuggestion('Tell me about Holi festival in Mathura')">
+                            <i class="bi bi-stars"></i> Festivals
+                        </span>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="messageInput" placeholder="Ask about darshan, ghats, food, routes..." onkeypress="handleKeyPress(event)">
+                            <button class="btn btn-primary" type="button" onclick="sendMessage()">
+                                <i class="bi bi-send"></i> Send
+                            </button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="startVoiceInput()" title="Voice Input">
+                                <i class="bi bi-mic"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <small class="text-muted mt-2 d-block">
+                        Tip: Ask short questions for faster answers, especially on free AI models.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        addMessageToChat(message, 'user');
+        input.value = '';
+        setChatInputState(true);
+        const thinkingBubble = showThinking();
+
+        fetch('/chatbot/api/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(r => r.json())
+        .then(data => {
+            removeThinking(thinkingBubble);
+            if (data.success) {
+                let response = data.response;
+                if (data.weather) {
+                    response += '\n\n' + data.weather;
+                }
+                addMessageToChat(response, 'bot', true);
+            } else {
+                addMessageToChat('Error: ' + (data.error || 'Unknown error'), 'bot', true);
+            }
+        })
+        .catch(err => {
+            removeThinking(thinkingBubble);
+            console.error('Error:', err);
+            addMessageToChat('Connection error. Please try again.', 'bot', true);
+        })
+        .finally(() => {
+            setChatInputState(false);
+        });
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
+    function sendSuggestion(message) {
+        document.getElementById('messageInput').value = message;
+        sendMessage();
+    }
+
+    function addMessageToChat(message, sender, animate = false) {
+        const chatBox = document.getElementById('chatBox');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        if (sender === 'bot' && animate) {
+            typeBotMessage(messageDiv, message);
+        } else if (sender === 'bot') {
+            messageDiv.innerHTML = formatBotMessage(message);
+        } else {
+            messageDiv.textContent = message;
+        }
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function showThinking() {
+        const chatBox = document.getElementById('chatBox');
+        const bubble = document.createElement('div');
+        bubble.className = 'message bot-message thinking-message';
+        bubble.innerHTML = `
+            <span class="thinking-label">Soch raha hoon</span>
+            <span class="thinking-dots"><span></span><span></span><span></span></span>
+        `;
+        chatBox.appendChild(bubble);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return bubble;
+    }
+
+    function removeThinking(bubble) {
+        if (bubble && bubble.parentNode) {
+            bubble.remove();
+        }
+    }
+
+    function setChatInputState(isLoading) {
+        const input = document.getElementById('messageInput');
+        const sendButton = document.querySelector('button[onclick="sendMessage()"]');
+        input.disabled = isLoading;
+        sendButton.disabled = isLoading;
+        sendButton.innerHTML = isLoading
+            ? '<span class="spinner"></span> Sending'
+            : '<i class="bi bi-send"></i> Send';
+        if (!isLoading) {
+            input.focus();
+        }
+    }
+
+    function typeBotMessage(messageDiv, message) {
+        const chatBox = document.getElementById('chatBox');
+        let index = 0;
+        const speed = message.length > 500 ? 4 : 10;
+
+        function tick() {
+            index += Math.max(1, Math.floor(message.length / 220));
+            const partial = message.slice(0, index);
+            messageDiv.innerHTML = formatBotMessage(partial) + '<span class="typing-cursor"></span>';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            if (index < message.length) {
+                setTimeout(tick, speed);
+            } else {
+                messageDiv.innerHTML = formatBotMessage(message);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        tick();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatInlineMarkdown(text) {
+        return escapeHtml(text)
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
+    }
+
+    function formatBotMessage(message) {
+        const lines = message.split(/\r?\n/);
+        const html = [];
+        let bulletItems = [];
+        let numberedItems = [];
+
+        function flushLists() {
+            if (bulletItems.length) {
+                html.push('<ul class="chat-list">' + bulletItems.join('') + '</ul>');
+                bulletItems = [];
+            }
+            if (numberedItems.length) {
+                html.push('<ol class="chat-list">' + numberedItems.join('') + '</ol>');
+                numberedItems = [];
+            }
+        }
+
+        lines.forEach((line) => {
+            const trimmed = line.trim();
+
+            if (!trimmed) {
+                flushLists();
+                return;
+            }
+
+            const bulletMatch = trimmed.match(/^(?:[-*]\s+)(.+)$/);
+            if (bulletMatch) {
+                bulletItems.push('<li>' + formatInlineMarkdown(bulletMatch[1]) + '</li>');
+                return;
+            }
+
+            const numberedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+            if (numberedMatch) {
+                numberedItems.push('<li>' + formatInlineMarkdown(numberedMatch[1]) + '</li>');
+                return;
+            }
+
+            flushLists();
+            html.push('<p>' + formatInlineMarkdown(trimmed) + '</p>');
+        });
+
+        flushLists();
+        return html.join('');
+    }
+
+    function startVoiceInput() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Speech Recognition not supported in this browser');
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-IN';
+
+        recognition.onstart = function() {
+            document.querySelector('button[onclick="startVoiceInput()"]').innerHTML = '<i class="bi bi-mic-fill"></i>';
+        };
+
+        recognition.onend = function() {
+            document.querySelector('button[onclick="startVoiceInput()"]').innerHTML = '<i class="bi bi-mic"></i>';
+        };
+
+        recognition.onresult = function(event) {
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    transcript += event.results[i][0].transcript + ' ';
+                }
+            }
+            if (transcript.trim()) {
+                document.getElementById('messageInput').value = transcript.trim();
+                sendMessage();
+            }
+        };
+
+        recognition.start();
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    window.addEventListener('load', function() {
+        addMessageToChat('Namaste. Main aapki Mathura yatra ko easy aur peaceful banane mein help kar sakta hoon. Aap mandir darshan, ghats, food, hotels, festivals, routes ya travel tips kuch bhi pooch sakte hain.', 'bot', true);
+    });
+</script>
+{% endblock %}
